@@ -1,0 +1,55 @@
+GET http://localhost:5000/auth
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkdWxAbWFpbC5jb20iLCJwcml2aWxlZ2UiOiJ1c2VyIiwiaWF0IjoxNTk1NTQ0MzQxLCJleHAiOjE1OTU1NDQzODF9.YnFtUfVkyi1L2ruR9aL6uhJKc0c2chgZhutxV9qVgAQ
+
+###
+GET http://localhost:5000/recruitments
+
+###
+GET http://localhost:5000/recruitments/5f187001dff27d31dc463203/candidates
+
+
+
+###
+POST http://localhost:5000/recruitments/5f187001dff27d31dc463203/candidate
+Content-Type: application/json
+
+{
+  "user": "5f1a368e885e8d0ff0e26b09"
+}
+
+###
+PATCH http://localhost:3000/departments/5f18875b18a69f52301e65b3
+Content-Type: application/json
+
+{
+  "name": "Accounting 1"
+}
+
+###
+DELETE http://localhost:3000/departments/5f18875b18a69f52301e65b3
+
+###
+POST http://localhost:5000/profiles
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InVzZXIyQG1haWwuY29tIiwicHJpdmlsZWdlIjoidXNlciIsImlhdCI6MTU5NTU1NjQ2OSwiZXhwIjoxNTk1NTU4ODY5fQ.qCwDnon_SjNVSblstc5yOOHNbOeK3wd-7pbn-bio1Qs
+Content-Type: application/json
+
+{
+  "bio": "Hello everybody, my name is user 2 ...",
+  "gender": "male",
+  "birthPlace": "Batola",
+  "birthDate": "1997-02-21"
+}
+
+###
+POST http://localhost:5000/auth
+Content-Type: application/json
+
+{
+  "email": "user2@mail.com",
+  "password": "password123"
+}
+
+
+###
+DELETE http://localhost:5000/users/reset
+
