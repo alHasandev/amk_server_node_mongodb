@@ -21,6 +21,18 @@ router.get("/:id", getDepartment, async (req, res) => {
   return res.json(res.department);
 });
 
+// Getting position on that department
+router.get("/:id/positions", async (req, res) => {
+  try {
+    const positions = await Position.find({ department: req.params.id });
+
+    return res.json(positions);
+  } catch (err) {
+    console.error(err);
+    return res.status(404).json({ error: "Position not found!" });
+  }
+});
+
 // Creating one
 router.post("/", async (req, res) => {
   const department = new Department({

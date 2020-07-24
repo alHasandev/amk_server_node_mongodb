@@ -2,7 +2,7 @@ GET http://localhost:5000/auth
 Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkdWxAbWFpbC5jb20iLCJwcml2aWxlZ2UiOiJ1c2VyIiwiaWF0IjoxNTk1NTQ0MzQxLCJleHAiOjE1OTU1NDQzODF9.YnFtUfVkyi1L2ruR9aL6uhJKc0c2chgZhutxV9qVgAQ
 
 ###
-GET http://localhost:5000/recruitments
+GET http://localhost:5000/departments/5f1888a518a69f52301e65b4/positions
 
 ###
 GET http://localhost:5000/recruitments/5f187001dff27d31dc463203/candidates
