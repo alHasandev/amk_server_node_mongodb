@@ -31,6 +31,7 @@ const recruitmentRouter = require("./routes/recruitments");
 const departmentRouter = require("./routes/departments");
 const positionRouter = require("./routes/positions");
 const profileRouter = require("./routes/profiles");
+const employeeRouter = require("./routes/employees");
 
 // Use routers
 app.use("/auth", authRouter);
@@ -39,6 +40,7 @@ app.use("/recruitments", recruitmentRouter);
 app.use("/departments", departmentRouter);
 app.use("/positions", positionRouter);
 app.use("/profiles", profileRouter);
+app.use("/employees", employeeRouter);
 
 app.listen(process.env.PORT || 5000, () =>
   console.log(`Server is running on port: ${process.env.PORT || 5000}`)

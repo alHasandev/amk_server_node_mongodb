@@ -23,6 +23,7 @@ const profileSchema = new mongoose.Schema({
   experiences: [
     {
       company: String,
+      field: String,
       job: String,
       from: Date,
       to: Date,

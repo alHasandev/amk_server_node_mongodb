@@ -16,7 +16,6 @@ const recruitmentSchema = new mongoose.Schema({
   },
   departmentName: {
     type: String,
-    required: true,
   },
   numberRequired: {
     type: Number,

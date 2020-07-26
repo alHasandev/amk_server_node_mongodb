@@ -5,17 +5,17 @@ const User = require("../models/User");
 // Function: authenticate jwt token
 module.exports = async function auth(req, res, next) {
   const token = req.headers["authorization"];
-  console.log(token);
+  // console.log(token);
 
   if (!token)
-    return res.status(401).json({ msg: "No token, authorization denied" });
+    return res.status(401).json({ message: "No token, authorization denied" });
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET_TOKEN);
-    req.user = await User.findOne({ email: decoded.email });
+    req.user = await User.findOne({ email: decoded.email }).select("-password");
     next();
   } catch (err) {
     console.error(err);
-    return res.status(403).json({ msg: "Invalid token" });
+    return res.status(403).json({ message: "Invalid token" });
   }
 };

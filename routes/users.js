@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const router = express.Router();
 const User = require("../models/User");
+const auth = require("../middleware/auth");
+const Profile = require("../models/Profile");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -15,8 +17,18 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Getting current user
+router.get("/me", auth, async (req, res) => {
+  try {
+    const profile = await Profile.findOne({ _id: req.user.profile });
+    req.user.profile = profile;
+    // console.log(profile);
+    return res.json(req.user);
+  } catch (err) {}
+});
+
 // Getting one
-router.get("/:id", getUser, async (req, res) => {
+router.get("/:id", getUser, (req, res) => {
   return res.json(res.user);
 });
 
@@ -48,6 +60,7 @@ router.patch("/:id", getUser, async (req, res) => {
   if (req.body.nik) res.user.nik = req.body.nik;
   if (req.body.name) res.user.name = req.body.name;
   if (req.body.email) res.user.email = req.body.email;
+  if (req.body.privilege) res.user.privilege = req.body.privilege;
   if (req.body.password) {
     // Bcrypt setup
     const hashedPassword = await bcrypt.hash(req.body.password, 10);

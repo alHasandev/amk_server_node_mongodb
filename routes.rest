@@ -1,20 +1,23 @@
-GET http://localhost:5000/auth
-Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkdWxAbWFpbC5jb20iLCJwcml2aWxlZ2UiOiJ1c2VyIiwiaWF0IjoxNTk1NTQ0MzQxLCJleHAiOjE1OTU1NDQzODF9.YnFtUfVkyi1L2ruR9aL6uhJKc0c2chgZhutxV9qVgAQ
+GET http://localhost:5000/users/me
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY4Njg4NWU4ZDBmZjBlMjZiMDgiLCJlbWFpbCI6InVzZXIyQG1haWwuY29tIiwicHJpdmlsZWdlIjoidXNlciIsImlhdCI6MTU5NTc0MDQyNSwiZXhwIjoxNTk1NzQyODI1fQ.k5F84HxLtnDLF9SP_T7-a8A3RcrxdzL5f3ouLBTed7o
 
 ###
-GET http://localhost:5000/departments/5f1888a518a69f52301e65b4/positions
+GET http://localhost:5000/employees/5f1a367d885e8d0ff0e26b07
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY3ZDg4NWU4ZDBmZjBlMjZiMDciLCJlbWFpbCI6InVzZXIxQG1haWwuY29tIiwicHJpdmlsZWdlIjoiYWRtaW4iLCJpYXQiOjE1OTU2MTA2OTEsImV4cCI6MTU5NTYxMzA5MX0.5OyKF5TdiHu4gwWh-LeeRaaWGIJA5ufZ2yLN9m6X9RE
 
 ###
-GET http://localhost:5000/recruitments/5f187001dff27d31dc463203/candidates
+GET http://localhost:5000/employees
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY3ZDg4NWU4ZDBmZjBlMjZiMDciLCJlbWFpbCI6InVzZXIxQG1haWwuY29tIiwicHJpdmlsZWdlIjoiYWRtaW4iLCJpYXQiOjE1OTU2MTA2OTEsImV4cCI6MTU5NTYxMzA5MX0.5OyKF5TdiHu4gwWh-LeeRaaWGIJA5ufZ2yLN9m6X9RE
 
 
 
 ###
-POST http://localhost:5000/recruitments/5f187001dff27d31dc463203/candidate
+POST http://localhost:5000/auth
 Content-Type: application/json
 
 {
-  "user": "5f1a368e885e8d0ff0e26b09"
+  "email": "user2@mail.com",
+  "password": "password123"
 }
 
 ###
@@ -41,12 +44,11 @@ Content-Type: application/json
 }
 
 ###
-POST http://localhost:5000/auth
+PATCH http://localhost:5000/users/5f1a367d885e8d0ff0e26b07
 Content-Type: application/json
 
 {
-  "email": "user2@mail.com",
-  "password": "password123"
+  "privilege": "admin"
 }
 
 

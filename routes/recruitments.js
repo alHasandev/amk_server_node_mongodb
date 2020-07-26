@@ -2,14 +2,15 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const router = express.Router();
+const auth = require("../middleware/auth");
 const Recruitment = require("../models/Recruitment");
 const User = require("../models/User");
-const Profile = require("../models/Profile");
 
 // Getting all
 router.get("/", async (req, res) => {
   try {
-    const recruitments = await Recruitment.find();
+    console.log(req.query);
+    const recruitments = await Recruitment.find({ ...req.query });
 
     return res.json(recruitments);
   } catch (err) {
@@ -43,10 +44,10 @@ router.get("/:id/candidates", getRecruitment, async (req, res) => {
 
 // Creating one
 router.post("/", async (req, res) => {
+  console.log(req.body);
   const recruitment = new Recruitment({
     title: req.body.title,
     positionName: req.body.positionName,
-    departmentName: req.body.departmentName,
     numberRequired: req.body.numberRequired,
     description: req.body.description,
     expiredAt: req.body.expiredAt,
@@ -72,6 +73,7 @@ router.patch("/:id", getRecruitment, async (req, res) => {
   if (req.body.numberRequired)
     res.recruitment.numberRequired = req.body.numberRequired;
   if (req.body.description) res.recruitment.description = req.body.description;
+  if (req.body.status) res.recruitment.status = req.body.status;
 
   try {
     const updatedRecruitment = await res.recruitment.save();
@@ -94,17 +96,20 @@ router.delete("/:id", getRecruitment, async (req, res) => {
 });
 
 // Push new candidate
-router.post("/:id/candidate", getRecruitment, getUser, async (req, res) => {
+router.post("/:id/candidate", auth, getRecruitment, async (req, res) => {
   res.recruitment.updatedAt = new Date();
+
+  if (req.user.privilege === "admin")
+    return res.status(400).json({ message: "Anda adalah admin!" });
 
   // Check if user already applied
   const candidate = res.recruitment.candidates.find(
-    (candidate) => candidate.toString() === res.user._id.toString()
+    (candidate) => candidate.toString() === req.user._id.toString()
   );
   if (candidate)
     return res.status(400).json("User already applied to this recruitment!");
 
-  res.recruitment.candidates.push(res.user._id);
+  res.recruitment.candidates.push(req.user._id);
 
   try {
     const updatedRecruitment = await res.recruitment.save();
