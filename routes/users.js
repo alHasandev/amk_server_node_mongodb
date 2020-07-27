@@ -56,23 +56,51 @@ router.post("/", isUniqueUser(true), async (req, res) => {
 });
 
 // Updating one
+router.patch("/me", auth, async (req, res) => {
+  if (req.body.nik) req.user.nik = req.body.nik;
+  if (req.body.name) req.user.name = req.body.name;
+  if (req.body.email) req.user.email = req.body.email;
+  if (req.body.image) req.user.image = req.body.image;
+
+  // set updated at date
+  req.user.updatedAt = new Date();
+
+  try {
+    if (req.body.password) {
+      // Bcrypt setup
+      const hashedPassword = await bcrypt.hash(res.body.password, 10);
+
+      // Push hashed password to user
+      req.user.password = hashedPassword;
+    }
+
+    const updatedUser = await req.user.save();
+    return res.json(updatedUser);
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+// Updating one
 router.patch("/:id", getUser, async (req, res) => {
   if (req.body.nik) res.user.nik = req.body.nik;
   if (req.body.name) res.user.name = req.body.name;
   if (req.body.email) res.user.email = req.body.email;
   if (req.body.privilege) res.user.privilege = req.body.privilege;
-  if (req.body.password) {
-    // Bcrypt setup
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
-
-    // Push hashed password to user
-    res.user.password = hashedPassword;
-  }
 
   // set updated at date
   res.user.updatedAt = new Date();
 
   try {
+    if (req.body.password) {
+      // Bcrypt setup
+      const hashedPassword = await bcrypt.hash(req.body.password, 10);
+
+      // Push hashed password to user
+      res.user.password = hashedPassword;
+    }
+
     const updatedUser = await res.user.save();
     return res.json(updatedUser);
   } catch (err) {

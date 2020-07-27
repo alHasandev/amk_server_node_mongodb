@@ -12,7 +12,8 @@ module.exports = async function auth(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET_TOKEN);
-    req.user = await User.findOne({ email: decoded.email }).select("-password");
+    req.user = await User.findById(decoded._id).select("-password");
+    if (!req.user) res.status(403).json({ message: "Invalid token" });
     next();
   } catch (err) {
     console.error(err);
