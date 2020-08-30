@@ -1,18 +1,33 @@
 const mongoose = require("mongoose");
 
+const ObjectId = mongoose.Schema.Types.ObjectId;
+
 const recruitmentSchema = new mongoose.Schema({
   candidates: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
+      user: {
+        type: ObjectId,
+        ref: "user",
+      },
+      status: {
+        type: String,
+      },
     },
   ],
   title: {
     type: String,
   },
+  position: {
+    type: ObjectId,
+    ref: "position",
+  },
   positionName: {
     type: String,
     required: true,
+  },
+  department: {
+    type: ObjectId,
+    ref: "department",
   },
   departmentName: {
     type: String,
@@ -21,12 +36,22 @@ const recruitmentSchema = new mongoose.Schema({
     type: Number,
     default: 1,
   },
-  hired: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
-    },
-  ],
+  pending: {
+    type: Number,
+    default: 0,
+  },
+  accepted: {
+    type: Number,
+    default: 0,
+  },
+  rejected: {
+    type: Number,
+    default: 0,
+  },
+  hired: {
+    type: Number,
+    default: 0,
+  },
   description: {
     type: String,
   },

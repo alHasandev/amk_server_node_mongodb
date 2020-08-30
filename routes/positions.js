@@ -4,15 +4,120 @@ const Department = require("../models/Department");
 
 const router = express.Router();
 
+const path = require("path");
+const PdfPrinter = require("pdfmake");
+
+const appPath = path.dirname(__dirname);
+
+const fonts = {
+  Roboto: {
+    normal: appPath + "/fonts/Roboto/Roboto-Regular.ttf",
+    bold: appPath + "/fonts/Roboto/Roboto-Medium.ttf",
+    italics: appPath + "/fonts/Roboto/Roboto-Italic.ttf",
+    bolditalics: appPath + "/fonts/Roboto/Roboto-MediumItalic.ttf",
+  },
+};
+
+const pdfStyles = require("../assets/pdf-make/styles");
+
+const printer = new PdfPrinter(fonts);
+const fs = require("fs");
+
 // Getting all
 router.get("/", async (req, res) => {
   try {
-    const positions = await Position.find();
+    const positions = await Position.find({ ...req.query });
 
     return res.json(positions);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// Get PDF
+router.get("/print", async (req, res) => {
+  try {
+    const positions = await Position.find({ ...req.query });
+    let department = {
+      code: "ALL",
+      name: "Semua",
+    };
+    if (req.query.department) {
+      department = await Department.findById(req.query.department);
+    }
+
+    const pdfName = ["positions", "department-" + department.code];
+
+    const docDef = {
+      content: [
+        {
+          text: "Laporan Daftar Posisi",
+          style: "title",
+          alignment: "center",
+        },
+        {
+          text: `Department: [${department.code}] ${department.name}`,
+          style: "subtitle",
+          alignment: "center",
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "auto"],
+            body: [
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "CODE", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Nama Posisi",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Gajih Pokok",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              ...positions.map((position, index) => {
+                return [
+                  { text: index + 1, alignment: "center" },
+                  { text: position.code, alignment: "center" },
+                  position.name,
+                  { text: position.salary, alignment: "right" },
+                ];
+              }),
+            ],
+          },
+        },
+      ],
+      styles: pdfStyles,
+    };
+
+    console.log(docDef);
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err.responseData);
   }
 });
 

@@ -1,18 +1,112 @@
 const express = require("express");
+
 const Department = require("../models/Department");
 const Position = require("../models/Position");
 
 const router = express.Router();
 
+const path = require("path");
+const PdfPrinter = require("pdfmake");
+
+const appPath = path.dirname(__dirname);
+
+const pdfStyles = require("../assets/pdf-make/styles");
+
+const fonts = {
+  Roboto: {
+    normal: appPath + "/fonts/Roboto/Roboto-Regular.ttf",
+    bold: appPath + "/fonts/Roboto/Roboto-Medium.ttf",
+    italics: appPath + "/fonts/Roboto/Roboto-Italic.ttf",
+    bolditalics: appPath + "/fonts/Roboto/Roboto-MediumItalic.ttf",
+  },
+};
+
+const printer = new PdfPrinter(fonts);
+const fs = require("fs");
+
 // Getting all
 router.get("/", async (req, res) => {
   try {
-    const departments = await Department.find();
+    const departments = await Department.find({ ...req.query });
 
     return res.json(departments);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// Get PDF
+router.get("/print", async (req, res) => {
+  try {
+    const departments = await Department.find({ ...req.query });
+
+    const pdfName = ["departments"];
+
+    const docDef = {
+      content: [
+        {
+          text: "Laporan Daftar Department",
+          style: "title",
+          alignment: "center",
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "auto"],
+            body: [
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "CODE", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Nama Department",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Jumlah Posisi",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              ...departments.map((department, index) => {
+                return [
+                  { text: index + 1, alignment: "center" },
+                  { text: department.code, alignment: "center" },
+                  department.name,
+                  { text: department.positions.length, alignment: "center" },
+                ];
+              }),
+            ],
+          },
+        },
+      ],
+      styles: pdfStyles,
+    };
+
+    console.log(docDef);
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err.responseData);
+    return res.json(err);
   }
 });
 

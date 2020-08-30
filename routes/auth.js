@@ -28,9 +28,7 @@ router.post("/", getUserByEmail, async (req, res) => {
       privilege: res.user.privilege,
     };
 
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET_TOKEN, {
-      expiresIn: "40m",
-    });
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET_TOKEN);
 
     return res.json({ accessToken: accessToken });
   } catch (err) {

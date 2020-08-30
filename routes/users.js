@@ -4,6 +4,24 @@ const router = express.Router();
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const Profile = require("../models/Profile");
+const Employee = require("../models/Employee");
+
+// Import for pdf make
+const path = require("path");
+const PdfPrinter = require("pdfmake");
+const appPath = path.dirname(__dirname);
+const pdfStyles = require("../assets/pdf-make/styles");
+const fonts = {
+  Roboto: {
+    normal: appPath + "/fonts/Roboto/Roboto-Regular.ttf",
+    bold: appPath + "/fonts/Roboto/Roboto-Medium.ttf",
+    italics: appPath + "/fonts/Roboto/Roboto-Italic.ttf",
+    bolditalics: appPath + "/fonts/Roboto/Roboto-MediumItalic.ttf",
+  },
+};
+
+const printer = new PdfPrinter(fonts);
+const fs = require("fs");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -27,9 +45,109 @@ router.get("/me", auth, async (req, res) => {
   } catch (err) {}
 });
 
+// Getting PDF
+router.get("/print", async (req, res) => {
+  try {
+    const users = await User.find({ ...req.query }).select("-password");
+
+    const pdfName = ["users"];
+
+    const docDef = {
+      content: [
+        {
+          text: "Laporan Daftar Pengguna",
+          style: "title",
+          alignment: "center",
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "auto", "auto"],
+            body: [
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "Gambar", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Nama User",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Email",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Hak Akses",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              ...users.map((user, index) => {
+                let imgPath = `${appPath}/assets/images/profile/${user.image}`;
+                return [
+                  { text: index + 1, alignment: "center" },
+                  { image: imgPath, fit: [50, 50], alignment: "center" },
+                  { text: user.name, alignment: "left" },
+                  {
+                    text: user.email,
+                    alignment: "left",
+                  },
+                  {
+                    text: user.privilege.toUpperCase(),
+                    alignment: "center",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+      ],
+      styles: pdfStyles,
+    };
+
+    console.log(docDef);
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
 // Getting one
 router.get("/:id", getUser, (req, res) => {
   return res.json(res.user);
+});
+
+// Getting user with profile
+router.get("/:id/profile", auth, getUser, async (req, res) => {
+  try {
+    const profile = await Profile.findById(res.user.profile);
+    res.user.profile = profile;
+
+    return res.json(res.user);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Creating one
@@ -123,6 +241,8 @@ router.delete("/reset", async (req, res) => {
 // Deleting One
 router.delete("/:id", getUser, async (req, res) => {
   try {
+    const employee = await Employee.findOne({ user: res.user._id });
+    await employee.remove();
     await res.user.remove();
     res.json({ message: "Deleted user" });
   } catch (err) {

@@ -1,14 +1,21 @@
-GET http://localhost:5000/users/me
-Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY3ZDg4NWU4ZDBmZjBlMjZiMDciLCJlbWFpbCI6InVzZXIxQG1haWwuY29tIiwicHJpdmlsZWdlIjoiYWRtaW4iLCJpYXQiOjE1OTU3NjY1ODQsImV4cCI6MTU5NTc2ODk4NH0.DX2qaYEVeDvtxhSKj7GJga6Lvyt3LPYyOB8Qepvo17A
+GET http://localhost:5000/employees/5f2ab3a8ea335f35f007bae7
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY3ZDg4NWU4ZDBmZjBlMjZiMDciLCJlbWFpbCI6ImFkbWluMUBtYWlsLmNvbSIsInByaXZpbGVnZSI6ImFkbWluIiwiaWF0IjoxNTk3NzMzNTQ3LCJleHAiOjE1OTc3MzU5NDd9.ABUrdUyO-hGojyIpKIVa6SklfLFRK5Vt-S6A4RwUAPM
 
 ###
-GET http://localhost:5000/profiles/me
-Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY4Njg4NWU4ZDBmZjBlMjZiMDgiLCJlbWFpbCI6InVzZXIyQG1haWwuY29tIiwicHJpdmlsZWdlIjoidXNlciIsImlhdCI6MTU5NTc2NjgzNCwiZXhwIjoxNTk1NzY5MjM0fQ.TFkSkptmhs0Wkdbet7V0eZACCkqLwcpjXkhiEybV630
+POST http://localhost:5000/recruitments/
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY3ZDg4NWU4ZDBmZjBlMjZiMDciLCJlbWFpbCI6ImFkbWluMUBtYWlsLmNvbSIsInByaXZpbGVnZSI6ImFkbWluIiwiaWF0IjoxNTk2NTE5ODIzLCJleHAiOjE1OTY1MjIyMjN9.cX_2oY-CxQ68aFT72b5pbJOX6rXCENA504pAPkEPDnA
+Content-Type: application/json
+
+{
+  "user": "5f1a3686885e8d0ff0e26b08",
+  "date": "2020-07-04",
+  "status": "present"
+}
 
 
 ###
-GET http://localhost:5000/employees
-Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFhMzY3ZDg4NWU4ZDBmZjBlMjZiMDciLCJlbWFpbCI6InVzZXIxQG1haWwuY29tIiwicHJpdmlsZWdlIjoiYWRtaW4iLCJpYXQiOjE1OTU2MTA2OTEsImV4cCI6MTU5NTYxMzA5MX0.5OyKF5TdiHu4gwWh-LeeRaaWGIJA5ufZ2yLN9m6X9RE
+GET http://localhost:5000/candidates/5f4b84cbb11b3e3d5042eb33
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjJhOTc3NTAzMmViNzUzNjQ2ZDhlNjkiLCJlbWFpbCI6ImtoYWlyQG1haWwuY29tIiwicHJpdmlsZWdlIjoiY2FuZGlkYXRlIiwiaWF0IjoxNTk2NjMwOTAyLCJleHAiOjE1OTY2MzMzMDJ9.ocPXl7KgsH06rBypJIEAcrjJ3CXv6LQ7zy37DCUv3WI
 
 
 
@@ -17,7 +24,7 @@ POST http://localhost:5000/auth
 Content-Type: application/json
 
 {
-  "email": "user2@mail.com",
+  "email": "admin1@mail.com",
   "password": "password123"
 }
 
@@ -45,7 +52,7 @@ Content-Type: application/json
 }
 
 ###
-PATCH http://localhost:5000/users/5f1a367d885e8d0ff0e26b07
+PATCH http://localhost:5000/users/5f1e491f97a0aa6738db40ce
 Content-Type: application/json
 
 {
