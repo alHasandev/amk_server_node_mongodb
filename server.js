@@ -6,20 +6,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
-const PdfPrinter = require("pdfmake");
-
-const fonts = {
-  Roboto: {
-    normal: "fonts/Roboto/Roboto-Regular.ttf",
-    bold: "fonts/Roboto/Roboto-Medium.ttf",
-    italics: "fonts/Roboto/Roboto-Italic.ttf",
-    bolditalics: "fonts/Roboto/Roboto-MediumItalic.ttf",
-  },
-};
-
-const printer = new PdfPrinter(fonts);
-const fs = require("fs");
-
 // Init express app
 const app = express();
 app.use(cors());
@@ -52,20 +38,8 @@ const candidateRouter = require("./routes/candidates");
 const assessmentRouter = require("./routes/assessments");
 
 app.get("/", (req, res) => {
-  const docDef = {
-    content: [
-      "First paragraph",
-      "Another paragraph, this time a little bit longer to make sure, this line will be divided into at least two lines",
-    ],
-  };
-
-  const pdfDoc = printer.createPdfKitDocument(docDef);
-  let temp;
-  pdfDoc.pipe((temp = fs.createWriteStream("document.pdf")));
-  pdfDoc.end();
-
-  temp.on("finish", async function () {
-    res.status(200).send();
+  return res.json({
+    message: "NodeServer served successfully!!",
   });
 });
 
