@@ -134,7 +134,7 @@ router.get("/print", async (req, res) => {
 });
 
 // Getting current user candidate
-router.get("/me", auth, getCandidate, async (req, res) => {
+router.get("/me", auth, async (req, res) => {
   try {
     const user = await User.findById(res.candidate.user).select("-password");
     res.candidate.user = user;

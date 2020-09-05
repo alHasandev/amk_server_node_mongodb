@@ -18,7 +18,8 @@ const printer = new PdfPrinter(fonts);
 const fs = require("fs");
 
 // Import utilities
-const { time, reverseNormalDate } = require("../utils/time");
+const { time, normalDate, reverseNormalDate } = require("../utils/time");
+const validationPart = require("../assets/pdf-make/validationPart");
 
 // Static
 const attendanceStatus = {
@@ -40,12 +41,372 @@ router.get("/me", auth, getEmployee, async (req, res) => {
 
 // Getting all attendances of all user
 router.get("/", auth, async (req, res) => {
+  const { month, ...query } = req.query;
+
+  let start = "";
+  let end = "";
+  if (month) {
+    [start, end] = month.split(":");
+    if (!end) {
+      let [year, monthNum] = month.split("-");
+      start = normalDate(month);
+      end = normalDate(new Date(year, Number(monthNum), 0));
+      // console.log(year, monthNum, new Date(year, monthNum + 1, 0));
+    }
+  } else {
+    start = normalDate(new Date());
+    end = normalDate(
+      new Date(new Date().getFullYear, new Date().getMonth() + 1, 0)
+    );
+  }
+  console.log(start, end);
   try {
-    const attendances = await Attendance.find();
+    const attendances = await Attendance.find({
+      date: {
+        $gte: start,
+        $lte: end,
+      },
+      ...query,
+    });
+    console.log(attendances);
     return res.json(attendances);
   } catch (err) {
     console.error(err);
     return res.sendStatus(404);
+  }
+});
+
+// Getting PDF Calendar Form
+router.get("/print/calendar", async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.query.employee).populate({
+      path: "user position department",
+      select: "-password",
+    });
+
+    const daynames = [
+      "senin",
+      "selasa",
+      "rabu",
+      "kamis",
+      "jum'at",
+      "sabtu",
+      "minggu",
+    ];
+
+    const calendar = [];
+
+    const date = new Date(req.query.month);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+
+    const firstWeekDay = date.getDay();
+    const lastWeekDay = new Date(year, month, lastDate).getDay();
+
+    const weekCount = Math.ceil((lastDate + firstWeekDay) / 7);
+
+    const attendances = await Attendance.find({
+      date: {
+        $gte: `${req.query.month}-01`,
+        $lte: `${req.query.month}-${lastDate}`,
+      },
+      employee: req.query.employee,
+    });
+    console.log(attendances);
+    // HItungan Kehadiran
+    const absence = attendances.filter(
+      (attendance) => attendance.status === "absence"
+    );
+    const leave = attendances.filter(
+      (attendance) => attendance.status === "leave"
+    );
+    const present = attendances.filter(
+      (attendance) => attendance.status === "present"
+    );
+
+    const fillColors = {
+      leave: "#d69e2e",
+      absence: "#f56565",
+      present: "#48bb78",
+    };
+
+    const prevDate = [];
+    for (let i = 0; i < firstWeekDay; i++) {
+      prevDate.push({
+        text: "",
+        style: "tableData",
+        alignment: "center",
+        fillColor: "#EEEEEE",
+      });
+    }
+
+    let dateNum = 1;
+    for (let j = 1; j <= weekCount; j++) {
+      const weekDate = [];
+      let lastDateWeek = 7 * j - firstWeekDay;
+      for (let i = dateNum; i <= lastDateWeek; i++) {
+        let dt = i < 10 ? `0${i}` : i;
+        let currAttd = attendances.find(
+          (attendance) =>
+            normalDate(attendance.date) === `${req.query.month}-${dt}`
+        );
+        console.log(currAttd);
+        if (i > lastDate) {
+          weekDate.push({
+            text: "",
+            style: "tableData",
+            alignment: "center",
+            fillColor: "#EEEEEE",
+          });
+        } else {
+          weekDate.push({
+            text: i,
+            style: "tableData",
+            alignment: "center",
+            fillColor: currAttd ? fillColors[currAttd.status] : "#FFFFFF",
+          });
+        }
+      }
+      calendar.push(weekDate);
+      dateNum = lastDateWeek + 1;
+    }
+    calendar[0].unshift(...prevDate);
+
+    const pdfName = ["attendances-calendar"];
+
+    // let buildRecruitments = [];
+
+    const docDef = {
+      content: [
+        pdfHeader("Laporan Kalender Kehadiran"),
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "Bulan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getMonth("2020-9"),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "NIK",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.nik,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Nama",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Jabatan/Posisi",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.position.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Department",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.department.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [150, 10, "*"],
+            body: [
+              [
+                {
+                  text: "Hadir",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  alignment: "center",
+                  table: {
+                    widths: ["*"],
+                    body: [
+                      [
+                        {
+                          text: "",
+                          margin: [0, 6, 0, 6],
+                          fillColor: fillColors["present"],
+                        },
+                      ],
+                    ],
+                  },
+                  layout: {
+                    defaultBorder: false,
+                  },
+                },
+                {
+                  text: present.length,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Izin/Cuti",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  alignment: "center",
+                  table: {
+                    widths: ["*"],
+                    body: [
+                      [
+                        {
+                          text: "",
+                          margin: [0, 6, 0, 6],
+                          fillColor: fillColors["leave"],
+                        },
+                      ],
+                    ],
+                  },
+                  layout: {
+                    defaultBorder: false,
+                  },
+                },
+                {
+                  text: leave.length,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Tidak Hadir",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  alignment: "center",
+                  table: {
+                    widths: ["*"],
+                    body: [
+                      [
+                        {
+                          text: "",
+                          margin: [0, 6, 0, 6],
+                          fillColor: fillColors["absence"],
+                        },
+                      ],
+                    ],
+                  },
+                  layout: {
+                    defaultBorder: false,
+                  },
+                },
+                {
+                  text: absence.length,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["*", "*", "*", "*", "*", "*", "*"],
+            body: [
+              [
+                { text: "Minggu", alignment: "center", style: "tableHeader" },
+                {
+                  text: "Senin",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Selasa",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Rabu",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                { text: "Kamis", alignment: "center", style: "tableHeader" },
+                { text: "Jum'at", alignment: "center", style: "tableHeader" },
+                { text: "Sabtu", alignment: "center", style: "tableHeader" },
+              ],
+              ...calendar,
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resources Manajer",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return err;
   }
 });
 
@@ -58,7 +419,7 @@ router.get("/print/:employeeId", async (req, res) => {
     });
 
     const employee = await Employee.findById(req.params.employeeId).populate({
-      path: "user",
+      path: "user position department",
       select: "-password",
     });
 
@@ -71,7 +432,75 @@ router.get("/print/:employeeId", async (req, res) => {
 
     const docDef = {
       content: [
-        pdfHeader("Laporan Daftar Kehadiran " + employee.user.name),
+        pdfHeader("Laporan Kehadiran Karyawan"),
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "Bulan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getMonth("2020-9"),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "NIK",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.nik,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Nama",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Jabatan/Posisi",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.position.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Department",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.department.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
         {
           style: "table",
           table: {
@@ -124,6 +553,11 @@ router.get("/print/:employeeId", async (req, res) => {
             ],
           },
         },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resorces Manajer",
+          nik: "",
+        }),
       ],
       styles: pdfStyles,
     };

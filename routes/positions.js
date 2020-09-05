@@ -8,6 +8,7 @@ const path = require("path");
 const PdfPrinter = require("pdfmake");
 
 const appPath = path.dirname(__dirname);
+const pdfHeader = require("../assets/pdf-make/header");
 
 const fonts = {
   Roboto: {
@@ -51,11 +52,7 @@ router.get("/print", async (req, res) => {
 
     const docDef = {
       content: [
-        {
-          text: "Laporan Daftar Posisi",
-          style: "title",
-          alignment: "center",
-        },
+        pdfHeader("Laporan Daftar Posisi"),
         {
           text: `Department: [${department.code}] ${department.name}`,
           style: "subtitle",

@@ -14,7 +14,7 @@ Content-Type: application/json
 
 
 ###
-GET http://localhost:5000/candidates/5f4b84cbb11b3e3d5042eb33
+GET http://localhost:5000/assessments
 Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjJhOTc3NTAzMmViNzUzNjQ2ZDhlNjkiLCJlbWFpbCI6ImtoYWlyQG1haWwuY29tIiwicHJpdmlsZWdlIjoiY2FuZGlkYXRlIiwiaWF0IjoxNTk2NjMwOTAyLCJleHAiOjE1OTY2MzMzMDJ9.ocPXl7KgsH06rBypJIEAcrjJ3CXv6LQ7zy37DCUv3WI
 
 

@@ -14,17 +14,17 @@ module.exports = {
     margin: [0, 0, 0, 4],
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: 9,
   },
   tableHeader: {
     bold: true,
     margin: [2, 4, 2, 4],
   },
   tableData: {
-    margin: [2, 2, 2, 2],
+    margin: [2, 4, 2, 4],
   },
   table: {
     fontSize: 10,
-    margin: [0, 10, 0, 10],
+    margin: [0, 10, 0, 4],
   },
 };

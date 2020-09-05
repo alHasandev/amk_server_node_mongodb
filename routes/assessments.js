@@ -168,23 +168,20 @@ router.get("/:candidateId", async (req, res) => {
 
 // Register current user to recruitment
 router.post("/", auth, async (req, res) => {
-  const candidate = new Candidate({
-    user: req.user._id,
-    recruitment: req.body.recruitment,
-    status: "pending",
+  const assessment = new Assessment({
+    employee: req.body.employee,
+    manner: req.body.manner,
+    expertness: req.body.expertness,
+    diligence: req.body.diligence,
+    tidiness: req.body.tidiness,
+    comment: req.body.comment,
   });
 
   try {
-    // Add new candidate
-    const newCandidate = await candidate.save();
+    const newAssessment = await assessment.save();
 
-    // Update recruitment candidate status
-    const recruitment = await Recruitment.findById(req.body.recruitment);
-    recruitment.pending = recruitment.pending + 1;
-    await recruitment.save();
-
-    return res.status(201).json(newCandidate);
-  } catch (error) {
+    return res.status(201).json(newAssessment);
+  } catch (err) {
     console.error(err);
     return res.status(500).json(err);
   }

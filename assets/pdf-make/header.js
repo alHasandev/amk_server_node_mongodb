@@ -2,14 +2,14 @@ const root = require("../../root");
 
 const header = (title) => {
   return {
-    style: "table",
+    // style: "table",
     table: {
       widths: ["auto", "*"],
       headerRows: 1,
       body: [
         [
           {
-            image: root + "/assets/images/logo/logo-frontweb.png",
+            image: root + "/public/images/logo/logo-frontweb.png",
             width: 80,
             alignment: "center",
             border: [false, false, false, true],

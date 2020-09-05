@@ -5,6 +5,7 @@ if (process.env.NODE_ENV !== "production") {
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const path = require("path");
 
 // Init express app
 const app = express();
@@ -23,6 +24,7 @@ db.once("open", () => console.log("Connected to mongodb database!"));
 
 // Use express middleware
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
 // Import routers
 const authRouter = require("./routes/auth");
@@ -36,6 +38,7 @@ const attendanceRouter = require("./routes/attendances");
 const requestRouter = require("./routes/requests");
 const candidateRouter = require("./routes/candidates");
 const assessmentRouter = require("./routes/assessments");
+const payloadRouter = require("./routes/payloads");
 
 app.get("/", (req, res) => {
   return res.json({
@@ -55,6 +58,7 @@ app.use("/attendances", attendanceRouter);
 app.use("/requests", requestRouter);
 app.use("/candidates", candidateRouter);
 app.use("/assessments", assessmentRouter);
+app.use("/payloads", payloadRouter);
 
 app.listen(process.env.PORT || 5000, () =>
   console.log(`Server is running on port: ${process.env.PORT || 5000}`)

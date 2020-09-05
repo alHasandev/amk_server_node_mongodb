@@ -316,7 +316,7 @@ async function getRecruitment(req, res, next) {
     if (!recruitment) {
       return res.status(404).json("Recruitment not found!");
     }
-
+    
     res.recruitment = recruitment;
     next();
   } catch (err) {

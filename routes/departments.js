@@ -9,7 +9,7 @@ const path = require("path");
 const PdfPrinter = require("pdfmake");
 
 const appPath = path.dirname(__dirname);
-
+const pdfHeader = require("../assets/pdf-make/header");
 const pdfStyles = require("../assets/pdf-make/styles");
 
 const fonts = {
@@ -45,11 +45,7 @@ router.get("/print", async (req, res) => {
 
     const docDef = {
       content: [
-        {
-          text: "Laporan Daftar Department",
-          style: "title",
-          alignment: "center",
-        },
+        pdfHeader("Laporan Daftar Department"),
         {
           style: "table",
           table: {

@@ -6,21 +6,14 @@ const User = require("../models/User");
 const router = express.Router();
 
 // Import for pdf make
-const path = require("path");
 const PdfPrinter = require("pdfmake");
-const appPath = path.dirname(__dirname);
 const pdfStyles = require("../assets/pdf-make/styles");
-const fonts = {
-  Roboto: {
-    normal: appPath + "/fonts/Roboto/Roboto-Regular.ttf",
-    bold: appPath + "/fonts/Roboto/Roboto-Medium.ttf",
-    italics: appPath + "/fonts/Roboto/Roboto-Italic.ttf",
-    bolditalics: appPath + "/fonts/Roboto/Roboto-MediumItalic.ttf",
-  },
-};
+const pdfHeader = require("../assets/pdf-make/header");
+const fonts = require("../assets/pdf-make/fonts");
 
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
+const { IDR } = require("../utils/currency");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -29,7 +22,7 @@ router.get("/", async (req, res) => {
 
     const employees = await Employee.find().populate({
       path: "user position department",
-      select: ["name", "nik", "email", "level"],
+      select: "-password",
       populate: "profile",
     });
 
@@ -55,15 +48,11 @@ router.get("/print", async (req, res) => {
 
     const docDef = {
       content: [
-        {
-          text: "Laporan Daftar Karyawan",
-          style: "title",
-          alignment: "center",
-        },
+        pdfHeader("Laporan Daftar Karyawan"),
         {
           style: "table",
           table: {
-            widths: ["auto", "auto", "*", "auto", "auto", "auto"],
+            widths: ["auto", "auto", "*", "auto", "auto", "auto", "auto"],
             body: [
               [
                 { text: "No.", style: "tableHeader", alignment: "center" },
@@ -85,6 +74,11 @@ router.get("/print", async (req, res) => {
                 },
                 {
                   text: "Posisi/Jabatan",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Gaji Pokok",
                   style: "tableHeader",
                   alignment: "center",
                 },
@@ -110,6 +104,7 @@ router.get("/print", async (req, res) => {
                     alignment: "center",
                   },
                   { text: employee.position.name, alignment: "center" },
+                  { text: IDR(employee.position.salary), alignment: "center" },
                 ];
               }),
             ],
@@ -139,6 +134,22 @@ router.get("/print", async (req, res) => {
       // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
       res.send(file);
     });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Get current user employee data
+router.get("/me", auth, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id }).populate({
+      path: "user",
+      select: "-password",
+      populate: "profile",
+    });
+    console.log(employee);
+    return res.json(employee);
   } catch (err) {
     console.error(err);
     return res.status(500).json(err);

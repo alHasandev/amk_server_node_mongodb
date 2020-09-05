@@ -1,5 +1,19 @@
 class Time {
   daynames = ["minggu", "senin", "selasa", "rabu", "kamis", "jum'at", "sabtu"];
+  moonnames = [
+    "Januari",
+    "Pebruari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
   year = (date) => {
     return new Date(date).getFullYear();
   };
@@ -19,6 +33,17 @@ class Time {
   getDayName = (date) => {
     const day = new Date(date).getDay();
     return this.daynames[day];
+  };
+
+  getMonth = (monthYear) => {
+    if (!monthYear) {
+      let month = new Date().getMonth() + 1;
+      let year = new Date().getFullYear();
+      monthYear = `${year}-${month}`;
+    }
+    const [year, month] = monthYear.split("-");
+
+    return `${this.moonnames[Number(month) - 1]} ${year}`;
   };
 }
 

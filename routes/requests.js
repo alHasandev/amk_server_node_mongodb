@@ -14,6 +14,7 @@ const fonts = require("../assets/pdf-make/fonts");
 
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
+const validationPart = require("../assets/pdf-make/validationPart");
 
 // Getting all request
 router.get("/", auth, async (req, res) => {
@@ -22,7 +23,7 @@ router.get("/", auth, async (req, res) => {
       const employee = await Employee.findOne({ user: req.user._id });
       req.query.from = employee._id;
     }
-    console.log(req.query);
+    // console.log(req.query);
     const requests = await Request.find({ ...req.query }).populate({
       path: "from",
       populate: {
@@ -101,6 +102,11 @@ router.get("/print", async (req, res) => {
             ],
           },
         },
+        validationPart({
+          nik: "63042604990001",
+          username: "Mohamad Albie",
+          positionName: "Admin",
+        }),
       ],
       styles: pdfStyles,
     };
@@ -139,6 +145,146 @@ router.get("/me", auth, getEmployee, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.sendStatus(500);
+  }
+});
+
+// Getting request PDF by employee id
+router.get("/print/employee/:employeeId", async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.employeeId).populate({
+      path: "user position",
+      select: "-password",
+    });
+
+    const requests = await Request.find({ ...req.query });
+
+    const pdfName = ["requests"];
+
+    const docDef = {
+      content: [
+        pdfHeader("Laporan Permintaan Karyawaan"),
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "*"],
+            body: [
+              [
+                {
+                  text: "NIK",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.nik,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Nama Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Jabatan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.position.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "*", "auto", "auto"],
+            body: [
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "Tanggal", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Detail Permintaan",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Status",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              ...requests.map((request, index) => {
+                let createdAt = new Date(request.createdAt)
+                  .toISOString()
+                  .split("T")[0];
+                return [
+                  { text: index + 1, alignment: "center" },
+                  { text: createdAt, alignment: "center" },
+                  {
+                    text: request.message,
+                    alignment: "left",
+                  },
+                  {
+                    text: request.status.toUpperCase(),
+                    alignment: "center",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        validationPart(
+          {
+            nik: "63042604990001",
+            username: "Mohamad Albie",
+            positionName: "Admin",
+          },
+          {
+            nik: employee.user.nik,
+            username: employee.user.name,
+            positionName: "Karyawan",
+          }
+        ),
+      ],
+      styles: pdfStyles,
+    };
+
+    console.log(docDef);
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
   }
 });
 
@@ -183,10 +329,12 @@ router.post("/me", auth, getEmployee, async (req, res) => {
     from: req.employee._id,
     message: req.body.message,
     createdAt: new Date(),
+    status: "pending",
   });
 
   try {
     const newRequest = await request.save();
+    // console.log(req.employee._id);
 
     return res.status(201).json(newRequest);
   } catch (err) {
@@ -200,6 +348,20 @@ router.patch("/:requestId", auth, getRequest, async (req, res) => {
   if (req.body.from) res.request.from = req.body.from;
   if (req.body.message) res.request.message = req.body.message;
   if (req.body.status) res.request.status = req.body.status;
+  res.request.updatedAt = new Date();
+
+  try {
+    const updatedRequest = await res.request.save();
+
+    return res.json(updatedRequest);
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
+  }
+});
+
+router.patch("/me/:requestId", auth, getRequest, async (req, res) => {
+  if (req.body.message) res.request.message = req.body.message;
   res.request.updatedAt = new Date();
 
   try {
@@ -241,6 +403,8 @@ async function getEmployee(req, res, next) {
   try {
     const employee = await Employee.findOne({ user: req.user._id });
     req.employee = employee;
+    console.log("req.employee", req.employee);
+    next();
   } catch (err) {
     console.error(err);
     return res.sendStatus(404);
