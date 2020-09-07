@@ -14,7 +14,7 @@ const attendanceSchema = new mongoose.Schema({
     required: true,
   },
   dayLeave: {
-    type: Number
+    type: Number,
   },
   description: {
     type: String,

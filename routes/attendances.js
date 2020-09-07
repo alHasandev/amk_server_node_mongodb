@@ -20,6 +20,7 @@ const fs = require("fs");
 // Import utilities
 const { time, normalDate, reverseNormalDate } = require("../utils/time");
 const validationPart = require("../assets/pdf-make/validationPart");
+const forceAbsence = require("../utils/schedule");
 
 // Static
 const attendanceStatus = {
@@ -36,6 +37,18 @@ router.get("/me", auth, getEmployee, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.sendStatus(404);
+  }
+});
+
+// Force attendance to absence
+router.get("/absence", async (req, res) => {
+  try {
+    const attendances = await forceAbsence(new Date());
+
+    return res.status(201).json(attendances);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
   }
 });
 

@@ -194,6 +194,10 @@ router.patch("/:candidateId", async (req, res) => {
     const candidate = await Candidate.findById(req.params.candidateId);
     const prevStatus = candidate.status;
     candidate.status = req.body.status;
+    if (req.body.status === "rejected") {
+      const user = await User.findById(candidate.user);
+      user.isActive = false;
+    }
     const updatedCandidate = await candidate.save();
 
     // Update recruitment candidate status
@@ -204,6 +208,18 @@ router.patch("/:candidateId", async (req, res) => {
     await recruitment.save();
 
     return res.json(updatedCandidate);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Deleting candidate
+router.delete("/:candidateId", async (req, res) => {
+  try {
+    const candidate = await Candidate.findById(req.params.candidateId);
+    await candidate.remove();
+    return res.json({ message: "Candidate is deleted" });
   } catch (err) {
     console.error(err);
     return res.status(500).json(err);

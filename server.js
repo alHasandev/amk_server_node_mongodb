@@ -6,6 +6,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
+const schedule = require("node-schedule");
 
 // Init express app
 const app = express();
@@ -39,6 +40,7 @@ const requestRouter = require("./routes/requests");
 const candidateRouter = require("./routes/candidates");
 const assessmentRouter = require("./routes/assessments");
 const payloadRouter = require("./routes/payloads");
+const forceAbsence = require("./utils/schedule");
 
 app.get("/", (req, res) => {
   return res.json({
@@ -59,6 +61,14 @@ app.use("/requests", requestRouter);
 app.use("/candidates", candidateRouter);
 app.use("/assessments", assessmentRouter);
 app.use("/payloads", payloadRouter);
+
+// Schedule every midnight
+const scheduleTime = "0 50 22 * * *"; // every 00:00:00 every day
+const j = schedule.scheduleJob(scheduleTime, async () => {
+  console.log("success");
+  const attendances = await forceAbsence(new Date());
+  console.log(attendances);
+});
 
 app.listen(process.env.PORT || 5000, () =>
   console.log(`Server is running on port: ${process.env.PORT || 5000}`)

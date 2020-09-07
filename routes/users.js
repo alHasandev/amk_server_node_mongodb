@@ -19,6 +19,7 @@ const root = require("../root");
 const path = require("path");
 
 const url = require("url");
+const Candidate = require("../models/Candidate");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -298,8 +299,10 @@ router.delete("/reset", async (req, res) => {
 router.delete("/:id", getUser, async (req, res) => {
   try {
     // Delete employee data
+    const candidate = await Candidate.findOne({ user: res.user._id });
     const employee = await Employee.findOne({ user: res.user._id });
     if (!!employee) await employee.remove();
+    if (!!candidate) await candidate.remove();
 
     // Delete image file
     const imagePath = path.join(
