@@ -46,6 +46,28 @@ router.get("/me", auth, getEmployee, async (req, res) => {
   }
 });
 
+// Force status attendance to absence for employee
+router.get("/absence", async (req, res) => {
+  try {
+    const attendances = await forceAbsence(normalDate(new Date()));
+
+    // write to log file
+    fs.appendFile(
+      "schedule.log",
+      `Force ${
+        attendances.length
+      } employee to absence status at ${new Date()}!!\n`,
+      (err) => {
+        if (err) throw err;
+      }
+    );
+
+    return res.status(201).json(attendances);
+  } catch (err) {
+    console.error();
+  }
+});
+
 // Getting qr text
 router.get("/qrcode", async (req, res) => {
   const password = "fasjfjalsflaksjflkasjfeafesafa";
