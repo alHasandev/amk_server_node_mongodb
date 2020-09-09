@@ -16,6 +16,11 @@ const departmentSchema = new mongoose.Schema({
       ref: "position",
     },
   ],
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  description: String,
 });
 
 module.exports = mongoose.model("department", departmentSchema);

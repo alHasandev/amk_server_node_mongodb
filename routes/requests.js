@@ -361,6 +361,7 @@ router.patch("/:requestId", auth, getRequest, async (req, res) => {
 });
 
 router.patch("/me/:requestId", auth, getRequest, async (req, res) => {
+  if (req.body.from) res.request.from = req.body.from;
   if (req.body.message) res.request.message = req.body.message;
   res.request.updatedAt = new Date();
 

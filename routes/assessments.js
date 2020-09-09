@@ -37,6 +37,22 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Getting one
+router.get("/:assessmentId", async (req, res) => {
+  try {
+    const assessment = await Assessment.findById(
+      req.params.assessmentId
+    ).populate({
+      path: "employee",
+    });
+
+    return res.json(assessment);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
 // Getting PDF
 router.get("/print", async (req, res) => {
   try {
@@ -136,37 +152,7 @@ router.get("/print", async (req, res) => {
   }
 });
 
-// Getting current user candidate
-router.get("/me", auth, getCandidate, async (req, res) => {
-  try {
-    const user = await User.findById(res.candidate.user).select("-password");
-    res.candidate.user = user;
-    return res.json(res.candidate);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json(err);
-  }
-});
-
-// Getting candidate by id
-router.get("/:candidateId", async (req, res) => {
-  try {
-    const candidate = await Candidate.findById(req.params.candidateId).populate(
-      {
-        path: "user",
-        select: "-password",
-        populate: "profile",
-      }
-    );
-
-    return res.json(candidate);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json(err);
-  }
-});
-
-// Register current user to recruitment
+// Creating new assessment
 router.post("/", auth, async (req, res) => {
   const assessment = new Assessment({
     employee: req.body.employee,
@@ -187,44 +173,38 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// Updating candidate
-router.patch("/:candidateId", async (req, res) => {
+// Updating one
+router.patch("/:assessmentId", async (req, res) => {
   try {
-    // Update candidate status
-    const candidate = await Candidate.findById(req.params.candidateId);
-    const prevStatus = candidate.status;
-    candidate.status = req.body.status;
-    const updatedCandidate = await candidate.save();
+    const assessment = await Assessment.findById(req.params.assessmentId);
+    if (req.body.month) assessment.month = req.body.month;
+    if (req.body.employee) assessment.employee = req.body.employee;
+    if (req.body.manner) assessment.manner = req.body.manner;
+    if (req.body.expertness) assessment.expertness = req.body.expertness;
+    if (req.body.diligence) assessment.diligence = req.body.diligence;
+    if (req.body.tidiness) assessment.tidiness = req.body.tidiness;
+    if (req.body.comment) assessment.comment = req.body.comment;
 
-    // Update recruitment candidate status
-    const recruitment = await Recruitment.findById(candidate.recruitment);
-    // kurangi status sebelumnya + tambah status yg baru
-    recruitment[prevStatus] = recruitment[prevStatus] - 1;
-    recruitment[req.body.status] = recruitment[req.body.status] + 1;
-    await recruitment.save();
+    const updatedAssessment = await assessment.save();
 
-    return res.json(updatedCandidate);
+    return res.json(updatedAssessment);
   } catch (err) {
     console.error(err);
     return res.status(500).json(err);
   }
 });
 
-// Middleware: get candidate by user id
-async function getCandidate(req, res, next) {
+// Deleting one
+router.delete("/:assessmentId", async (req, res) => {
   try {
-    const recruitment = await Recruitment.findOne({
-      "candidates.user": req.user._id.toString(),
-    });
+    const assessment = await Assessment.findById(req.params.assessmentId);
+    await assessment.remove();
 
-    res.candidate = recruitment.candidates.find(
-      (candidate) => candidate.user.toString() === req.user._id.toString()
-    );
-    next();
+    return res.json({ message: "Penilian terhapus!" });
   } catch (err) {
     console.error(err);
-    return res.sendStatus(404);
+    return res.status(500).json(err);
   }
-}
+});
 
 module.exports = router;

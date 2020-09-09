@@ -52,6 +52,7 @@ const recruitmentSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  requirements: [String],
   description: {
     type: String,
   },
@@ -70,6 +71,10 @@ const recruitmentSchema = new mongoose.Schema({
   expiredAt: {
     type: Date,
     required: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
   },
 });
 

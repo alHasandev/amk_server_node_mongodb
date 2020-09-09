@@ -157,13 +157,16 @@ router.get("/me", auth, async (req, res) => {
 });
 
 // Getting one
-router.get("/:userId", auth, async (req, res) => {
+router.get("/:employeeId", auth, async (req, res) => {
   try {
-    if (req.user.privilege === "admin" || req.user._id === req.params.userId) {
-      const employee = await Employee.findById(req.params.userId).populate(
-        "user",
-        "-password"
-      );
+    if (
+      req.user.privilege === "admin" ||
+      req.user._id === req.params.employeeId
+    ) {
+      const employee = await Employee.findById(req.params.employeeId).populate({
+        path: "user department position",
+        select: "-password",
+      });
 
       return res.json(employee);
     }
@@ -190,9 +193,9 @@ router.post("/", auth, async (req, res) => {
     const newEmployee = await employee.save();
 
     // Change user privilege to employee
-    const user = await User.findById(req.body.user);
-    user.privilege = "employee";
-    await user.save();
+    // const user = await User.findById(req.body.user);
+    // user.privilege = "employee";
+    // await user.save();
 
     return res.status(201).json(newEmployee);
   } catch (err) {
@@ -202,14 +205,16 @@ router.post("/", auth, async (req, res) => {
 });
 
 // Updating one
-router.patch("/:userId", auth, getEmployeeByUserId, async (req, res) => {
-  if (req.body.position) res.employee.position = req.body.position;
-  if (req.body.department) res.employee.department = req.body.department;
-
+router.patch("/:employeeId", auth, async (req, res) => {
   try {
+    const employee = await Employee.findById(req.params.employeeId);
+    if (req.body.position) employee.position = req.body.position;
+    if (req.body.department) employee.department = req.body.department;
+    if (req.body.isActive) employee.isActive = req.body.isActive;
+
     if (req.user.privilege !== "admin") return res.sendStatus(403);
 
-    const updatedEmployee = await res.employee.save();
+    const updatedEmployee = await employee.save();
     return res.json(updatedEmployee);
   } catch (err) {
     console.error(err);

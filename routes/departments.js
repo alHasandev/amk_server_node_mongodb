@@ -128,6 +128,7 @@ router.post("/", async (req, res) => {
   const department = new Department({
     code: req.body.code,
     name: req.body.name,
+    description: req.body.description,
   });
 
   try {
@@ -144,6 +145,7 @@ router.post("/", async (req, res) => {
 router.patch("/:id", getDepartment, async (req, res) => {
   if (req.body.code) res.department.code = req.body.code;
   if (req.body.name) res.department.name = req.body.name;
+  if (req.body.description) res.department.description = req.body.description;
 
   try {
     const updatedDepartment = await res.department.save();
@@ -159,6 +161,29 @@ router.patch("/:id", getDepartment, async (req, res) => {
 router.delete("/:id", getDepartment, async (req, res) => {
   try {
     await res.department.remove();
+
+    // Delete positions
+    await Position.deleteMany({ _id: { $in: res.department.positions } });
+
+    return res.json({ message: "Deleted department!" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// SoftDeleting one
+router.delete("/soft/:id", getDepartment, async (req, res) => {
+  try {
+    res.department.isActive = false;
+    const updatedDepartment = await res.department.save();
+
+    // Set positions isActive property to false
+    // await Position.deleteMany({ _id: { $in: res.department.positions } });
+    await Position.updateMany(
+      { department: res.department._id },
+      { $set: { isActive: false } }
+    );
 
     return res.json({ message: "Deleted department!" });
   } catch (err) {

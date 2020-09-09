@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const ObjectId = mongoose.Schema.Types.ObjectId;
 const assessmentSchema = new mongoose.Schema({
+  month: String,
   employee: {
     type: ObjectId,
     ref: "employee",

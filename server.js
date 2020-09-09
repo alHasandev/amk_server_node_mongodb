@@ -1,6 +1,6 @@
-if (process.env.NODE_ENV !== "production") {
-  require("dotenv").config();
-}
+// if (process.env.NODE_ENV !== "production") {
+require("dotenv").config();
+// }
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -41,6 +41,7 @@ const candidateRouter = require("./routes/candidates");
 const assessmentRouter = require("./routes/assessments");
 const payloadRouter = require("./routes/payloads");
 const forceAbsence = require("./utils/schedule");
+const { normalDate } = require("./utils/time");
 
 app.get("/", (req, res) => {
   return res.json({
@@ -63,10 +64,10 @@ app.use("/assessments", assessmentRouter);
 app.use("/payloads", payloadRouter);
 
 // Schedule every midnight
-const scheduleTime = "0 50 22 * * *"; // every 00:00:00 every day
+const scheduleTime = "0 30 23 * * *"; // every 00:00:00 every day
 const j = schedule.scheduleJob(scheduleTime, async () => {
-  console.log("success");
-  const attendances = await forceAbsence(new Date());
+  console.log("running schedule", new Date());
+  const attendances = await forceAbsence(normalDate(new Date()));
   console.log(attendances);
 });
 

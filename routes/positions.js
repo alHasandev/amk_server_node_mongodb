@@ -129,6 +129,7 @@ router.post("/", getDepartment, async (req, res) => {
     department: res.department._id,
     code: req.body.code,
     name: req.body.name,
+    level: req.body.level,
     salary: req.body.salary,
   });
 
@@ -152,6 +153,7 @@ router.patch("/:id", getPosition, async (req, res) => {
   if (req.body.code) res.position.code = req.body.code;
   if (req.body.name) res.position.name = req.body.name;
   if (req.body.salary) res.position.salary = req.body.salary;
+  if (req.body.level) res.position.level = req.body.level;
 
   try {
     const updatedPosition = await res.position.save();
@@ -168,7 +170,28 @@ router.delete("/:id", getPosition, async (req, res) => {
   try {
     await res.position.remove();
 
+    // Delete position in department
+    const department = await Department.findById(res.position.department);
+    department.positions = department.positions.filter(
+      (position) => position.toString() !== req.params.id
+    );
+    console.log(department.positions);
+    await department.save();
+
     return res.json({ message: "Deleted position" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Deleting one
+router.delete("/soft/:id", getPosition, async (req, res) => {
+  try {
+    res.position.isActive = false;
+    const updatedPosition = await res.position.save();
+
+    return res.json(updatedPosition);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message });

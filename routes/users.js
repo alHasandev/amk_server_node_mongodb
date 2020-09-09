@@ -328,6 +328,19 @@ router.delete("/:id", getUser, async (req, res) => {
   }
 });
 
+// SoftDeleting One
+router.delete("/soft/:id", getUser, async (req, res) => {
+  try {
+    res.user.isActive = false;
+    await res.user.save();
+
+    res.json({ message: "Deleted user" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Function: get user by id
 async function getUser(req, res, next) {
   try {

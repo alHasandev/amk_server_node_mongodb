@@ -22,6 +22,10 @@ const positionSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 module.exports = mongoose.model("position", positionSchema);

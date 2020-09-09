@@ -21,8 +21,10 @@ const fs = require("fs");
 // Getting all
 router.get("/", async (req, res) => {
   try {
-    console.log(req.query);
-    const recruitments = await Recruitment.find({ ...req.query });
+    // console.log(req.query);
+    const recruitments = await Recruitment.find({ ...req.query }).populate({
+      path: "position department",
+    });
 
     return res.json(recruitments);
   } catch (err) {
@@ -208,11 +210,20 @@ router.post("/", async (req, res) => {
   });
 
   try {
+    if (req.body.requirements) {
+      let requirements = req.body.requirements;
+      if (Array.isArray(requirements)) {
+        recruitment.requirements = requirements;
+      } else {
+        recruitment.requirements = requirements.split(";");
+      }
+    }
     const position = await Position.findById(req.body.positionId);
+    console.log(position);
     const department = await Department.findById(position.department);
-    recruitment.position = position.id;
+    recruitment.position = position._id;
     recruitment.positionName = position.name;
-    recruitment.department = department.id;
+    recruitment.department = department._id;
     recruitment.departmentName = department.name;
 
     const newRecruitment = await recruitment.save();
@@ -235,6 +246,7 @@ router.patch("/:id", getRecruitment, async (req, res) => {
     res.recruitment.numberRequired = req.body.numberRequired;
   if (req.body.description) res.recruitment.description = req.body.description;
   if (req.body.status) res.recruitment.status = req.body.status;
+  if (req.body.expiredAt) res.recruitment.expiredAt = req.body.expiredAt;
 
   try {
     const updatedRecruitment = await res.recruitment.save();
@@ -250,6 +262,20 @@ router.patch("/:id", getRecruitment, async (req, res) => {
 router.delete("/:id", getRecruitment, async (req, res) => {
   try {
     await res.recruitment.remove();
+    return res.json({ message: "Department deleted" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Soft deleting
+router.delete("/soft/:id", getRecruitment, async (req, res) => {
+  try {
+    res.recruitment.isActive = false;
+    await res.recruitment.save();
+
+    return res.json({ message: "Department deleted" });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message });
@@ -312,11 +338,13 @@ router.patch("/:id/candidates/:userId", getRecruitment, async (req, res) => {
 
 async function getRecruitment(req, res, next) {
   try {
-    const recruitment = await Recruitment.findById(req.params.id);
+    const recruitment = await Recruitment.findById(req.params.id).populate({
+      path: "position department",
+    });
     if (!recruitment) {
       return res.status(404).json("Recruitment not found!");
     }
-    
+
     res.recruitment = recruitment;
     next();
   } catch (err) {

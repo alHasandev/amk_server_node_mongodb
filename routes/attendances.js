@@ -3,6 +3,7 @@ const Attendance = require("../models/Attendance");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const Employee = require("../models/Employee");
+const bcrypt = require("bcrypt");
 
 const router = express.Router();
 
@@ -18,7 +19,12 @@ const printer = new PdfPrinter(fonts);
 const fs = require("fs");
 
 // Import utilities
-const { time, normalDate, reverseNormalDate } = require("../utils/time");
+const {
+  time,
+  normalDate,
+  reverseNormalDate,
+  localDate,
+} = require("../utils/time");
 const validationPart = require("../assets/pdf-make/validationPart");
 const forceAbsence = require("../utils/schedule");
 
@@ -37,6 +43,72 @@ router.get("/me", auth, getEmployee, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.sendStatus(404);
+  }
+});
+
+// Getting qr text
+router.get("/qrcode", async (req, res) => {
+  const password = "fasjfjalsflaksjflkasjfeafesafa";
+  const time = "" + new Date().getMinutes() + new Date().getSeconds();
+  console.log(time);
+
+  try {
+    const encryptedPassword = await bcrypt.hash(password, 10);
+
+    return res.json({ text: encryptedPassword, time: Number(time) });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Verify qr code
+router.post("/qrcode", auth, async (req, res) => {
+  const password = "fasjfjalsflaksjflkasjfeafesafa";
+
+  try {
+    const isMatch = await bcrypt.compare(password, req.body.qrtext);
+
+    if (!isMatch)
+      return res.status(500).json({
+        error:
+          "Gagal melakukan scan qrcode kehadiran, silahkan coba kembali beberapa saat !!",
+      });
+
+    const time = "" + new Date().getMinutes() + new Date().getSeconds();
+    if (Number(time) - Number(req.body.time) >= 30)
+      return res.status(500).json({
+        error: "QR Code sudah kadaluarsa, tolong lakukan scan qr code kembali",
+      });
+
+    // Set attendance to present
+    const employee = await Employee.findOne({ user: req.user._id });
+
+    // Check apakah sudah melakukan scan kehadiran
+
+    let attendance = await Attendance.findOne({
+      employee: employee._id,
+      date: normalDate(new Date()),
+    });
+
+    if (attendance)
+      return res.status(403).json({
+        error: "Anda sudah melakukan absensi, " + attendance.description,
+      });
+
+    attendance = new Attendance({
+      employee: employee._id,
+      date: normalDate(new Date()),
+      status: "present",
+      description: "Absensi dengan QR Code",
+    });
+
+    const newAttendance = await attendance.save();
+
+    return res.status(201).json(newAttendance);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
   }
 });
 
