@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
   },
   privilege: {
     type: String,
-    default: "user",
+    default: "candidate",
   },
   image: {
     type: String,

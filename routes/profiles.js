@@ -25,7 +25,12 @@ router.post("/", auth, async (req, res) => {
     gender: req.body.gender,
     birthPlace: req.body.birthPlace,
     birthDate: req.body.birthDate,
-    skills: req.body.skills.split(",").map((skill) => skill.trim()),
+    contact: req.body.contact,
+    religion: req.body.religion,
+    maritalStatus: req.body.maritalStatus,
+    nationality: req.body.nationality,
+    address: req.body.address,
+    skills: req.body.skills.trim().split(","),
   };
 
   try {
@@ -36,6 +41,11 @@ router.post("/", auth, async (req, res) => {
       if (data.gender) profile.gender = data.gender;
       if (data.birthPlace) profile.birthPlace = data.birthPlace;
       if (data.birthDate) profile.birthDate = data.birthDate;
+      if (data.contact) profile.contact = data.contact;
+      if (data.religion) profile.religion = data.religion;
+      if (data.maritalStatus) profile.maritalStatus = data.maritalStatus;
+      if (data.nationality) profile.nationality = data.nationality;
+      if (data.address) profile.address = data.address;
       if (data.skills) profile.skills = data.skills;
     } else {
       profile = new Profile(data);

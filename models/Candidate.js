@@ -15,6 +15,11 @@ const candidateSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  comment: String,
 });
 
 module.exports = mongoose.model("candidate", candidateSchema);

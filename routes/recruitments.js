@@ -207,6 +207,7 @@ router.post("/", async (req, res) => {
     numberRequired: req.body.numberRequired,
     description: req.body.description,
     expiredAt: req.body.expiredAt,
+    status: req.body.status,
   });
 
   try {

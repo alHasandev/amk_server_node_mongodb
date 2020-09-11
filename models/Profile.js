@@ -18,6 +18,9 @@ const profileSchema = new mongoose.Schema({
     required: true,
   },
   contact: String,
+  religion: String,
+  maritalStatus: String,
+  nationality: String,
   address: String,
   skills: [String],
   experiences: [

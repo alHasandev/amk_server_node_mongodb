@@ -24,7 +24,7 @@ const Candidate = require("../models/Candidate");
 // Getting all
 router.get("/", async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find({ ...req.query }).select("-password");
     return res.json(users);
   } catch (err) {
     console.error(err);

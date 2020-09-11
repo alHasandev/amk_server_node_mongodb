@@ -144,10 +144,9 @@ router.get("/print", async (req, res) => {
 router.get("/me", auth, async (req, res) => {
   try {
     const employee = await Employee.findOne({ user: req.user._id }).populate({
-      path: "user",
-      select: "-password",
-      populate: "profile",
+      path: "position department",
     });
+
     console.log(employee);
     return res.json(employee);
   } catch (err) {

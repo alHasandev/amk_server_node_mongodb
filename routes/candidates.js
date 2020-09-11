@@ -136,9 +136,12 @@ router.get("/print", async (req, res) => {
 // Getting current user candidate
 router.get("/me", auth, async (req, res) => {
   try {
-    const user = await User.findById(res.candidate.user).select("-password");
-    res.candidate.user = user;
-    return res.json(res.candidate);
+    const candidate = await Candidate.findOne({ user: req.user._id }).populate({
+      path: "recruitment",
+      populate: "position department",
+    });
+
+    return res.json(candidate);
   } catch (err) {
     console.error(err);
     return res.status(500).json(err);
@@ -150,9 +153,9 @@ router.get("/:candidateId", async (req, res) => {
   try {
     const candidate = await Candidate.findById(req.params.candidateId).populate(
       {
-        path: "user",
+        path: "user recruitment",
         select: "-password",
-        populate: "profile",
+        populate: "profile position department",
       }
     );
 
@@ -193,11 +196,14 @@ router.patch("/:candidateId", async (req, res) => {
     // Update candidate status
     const candidate = await Candidate.findById(req.params.candidateId);
     const prevStatus = candidate.status;
-    candidate.status = req.body.status;
+    if (req.body.status) candidate.status = req.body.status;
+    if (req.body.comment) candidate.comment = req.body.comment;
+
     if (req.body.status === "rejected") {
       const user = await User.findById(candidate.user);
       user.isActive = false;
     }
+
     const updatedCandidate = await candidate.save();
 
     // Update recruitment candidate status
