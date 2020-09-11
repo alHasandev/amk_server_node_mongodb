@@ -21,8 +21,21 @@ const fs = require("fs");
 // Getting all
 router.get("/", async (req, res) => {
   try {
-    // console.log(req.query);
-    const recruitments = await Recruitment.find({ ...req.query }).populate({
+    let { dateRange, ...query } = req.query;
+    let queryDate = {};
+
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      queryDate = {
+        expiredAt: { $gte: start, $lte: end },
+      };
+    }
+
+    const recruitments = await Recruitment.find({
+      ...query,
+      ...queryDate,
+    }).populate({
       path: "position department",
     });
 
@@ -36,21 +49,21 @@ router.get("/", async (req, res) => {
 // Get PDF
 router.get("/print", async (req, res) => {
   try {
-    let { date, ...query } = req.query;
+    let { dateRange, ...query } = req.query;
     let queryDate = {};
 
-    if (date) {
-      let date1 = req.query.date.split(":")[0];
-      let date2 = req.query.date.split(":")[1];
-      date1 = new Date(date1).toISOString().split("T")[0];
-      date2 = new Date(date2).toISOString().split("T")[0];
-      date = date1 + "~" + date2;
+    if (dateRange) {
+      let start = req.query.dateRange.split(":")[0];
+      let end = req.query.dateRange.split(":")[1];
+      start = new Date(start).toISOString().split("T")[0];
+      end = new Date(end).toISOString().split("T")[0];
+      dateRange = start + "-" + end;
 
       queryDate = {
-        expiredAt: { $gte: new Date(date1), $lte: new Date(date2) },
+        expiredAt: { $gte: new Date(start), $lte: new Date(end) },
       };
     } else {
-      date = "Semua";
+      dateRange = "Semua";
     }
 
     const recruitments = await Recruitment.find({ ...query, ...queryDate });

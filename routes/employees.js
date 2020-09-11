@@ -18,9 +18,17 @@ const { IDR } = require("../utils/currency");
 // Getting all
 router.get("/", async (req, res) => {
   try {
-    // if (req.user.privilege !== "admin") return res.sendStatus(403);
+    const { dateRange, ...query } = req.query;
 
-    const employees = await Employee.find().populate({
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      query.joinDate = { $gte: start, $lte: end };
+    }
+
+    console.log(query);
+
+    const employees = await Employee.find({ ...query }).populate({
       path: "user position department",
       select: "-password",
       populate: "profile",
@@ -192,9 +200,11 @@ router.post("/", auth, async (req, res) => {
     const newEmployee = await employee.save();
 
     // Change user privilege to employee
-    // const user = await User.findById(req.body.user);
-    // user.privilege = "employee";
-    // await user.save();
+    const user = await User.findById(req.body.user);
+    if (user.privilege !== "admin") {
+      user.privilege = "employee";
+      await user.save();
+    }
 
     return res.status(201).json(newEmployee);
   } catch (err) {

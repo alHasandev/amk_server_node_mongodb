@@ -22,10 +22,18 @@ const fs = require("fs");
 // Getting all candidates
 router.get("/", async (req, res) => {
   try {
-    const candidates = await Candidate.find({ ...req.query }).populate({
+    const { dateRange, ...query } = req.query;
+
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      query.appliedAt = { $gte: start, $lte: end };
+    }
+
+    const candidates = await Candidate.find({ ...query }).populate({
       path: "user recruitment",
       select: "-password",
-      populate: "profile",
+      populate: "profile position department",
     });
     return res.json(candidates);
   } catch (err) {
@@ -176,12 +184,32 @@ router.post("/", auth, async (req, res) => {
 
   try {
     // Add new candidate
+    if (req.user.privilege !== "user") {
+      if (req.user.privilege === "candidate") {
+        const candidate = await Candidate.findOne({
+          user: req.user._id,
+          recruitment: req.body.recruitment,
+        });
+        if (candidate)
+          return res
+            .status(403)
+            .json({ message: "Anda sudah terdaftar pada lowongan ini !!" });
+      } else {
+        return res
+          .status(403)
+          .json({ message: "Anda sudah menjadi karyawan !!" });
+      }
+    }
+
     const newCandidate = await candidate.save();
 
     // Update recruitment candidate status
     const recruitment = await Recruitment.findById(req.body.recruitment);
+    const user = await User.findById(req.user._id);
     recruitment.pending = recruitment.pending + 1;
+    user.privilege = "candidate";
     await recruitment.save();
+    await user.save();
 
     return res.status(201).json(newCandidate);
   } catch (error) {

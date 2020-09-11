@@ -238,6 +238,7 @@ router.patch("/:id", getUser, uploadImage, async (req, res) => {
   if (req.body.name) res.user.name = req.body.name;
   if (req.body.email) res.user.email = req.body.email;
   if (req.body.privilege) res.user.privilege = req.body.privilege;
+  if (req.body.isActive) res.user.isActive = req.body.isActive;
 
   // set updated at date
   res.user.updatedAt = new Date();
