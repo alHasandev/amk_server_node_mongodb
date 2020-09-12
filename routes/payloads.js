@@ -449,7 +449,27 @@ router.get("/me/print", async (req, res) => {
         {
           style: "table",
           table: {
-            widths: ["auto", "*"],
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
             body: [
               [
                 {
@@ -540,20 +560,49 @@ router.get("/me/print", async (req, res) => {
                   payload.salary + payload.bonus - payload.reduction;
                 // console.log(profile);
                 return [
-                  { text: index + 1, alignment: "center" },
-                  { text: time.getMonth(payload.month), alignment: "center" },
+                  { text: index + 1, style: "tableData", alignment: "center" },
                   {
-                    text: IDR(payload.salary),
+                    text: time.getMonth(payload.month),
+                    style: "tableData",
                     alignment: "center",
                   },
-                  { text: IDR(payload.bonus), alignment: "center" },
-                  { text: IDR(payload.reduction), alignment: "center" },
-                  { text: IDR(salaryTotal), alignment: "center" },
+                  {
+                    text: IDR(payload.salary),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: IDR(payload.bonus),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: IDR(payload.reduction),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: IDR(salaryTotal),
+                    style: "tableData",
+                    alignment: "center",
+                  },
                 ];
               }),
             ],
           },
         },
+        validationPart(
+          {
+            positionName: "Karyawan",
+            username: employee.user.name,
+            nik: "",
+          },
+          {
+            positionName: "Banjarmasin, " + time.getDateString(),
+            username: "Dept Head",
+            nik: "",
+          }
+        ),
       ],
       styles: pdfStyles,
     };

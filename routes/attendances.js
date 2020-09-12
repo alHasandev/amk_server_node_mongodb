@@ -24,6 +24,7 @@ const {
   normalDate,
   reverseNormalDate,
   localDate,
+  getDatePosition,
 } = require("../utils/time");
 const validationPart = require("../assets/pdf-make/validationPart");
 const forceAbsence = require("../utils/schedule");
@@ -290,7 +291,27 @@ router.get("/print/calendar", async (req, res) => {
         {
           style: "table",
           table: {
-            widths: [150, "*"],
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
             body: [
               [
                 {
@@ -358,7 +379,7 @@ router.get("/print/calendar", async (req, res) => {
         {
           style: "table",
           table: {
-            widths: [150, 10, "*"],
+            widths: [120, 10, "*"],
             body: [
               [
                 {
@@ -520,10 +541,30 @@ router.get("/print/calendar", async (req, res) => {
 // Getting PDF by employee id
 router.get("/print/:employeeId", async (req, res) => {
   try {
+    const { month, ...query } = req.query;
+
+    const filter = {
+      month: "Semua",
+      status: "Semua",
+    };
+
+    if (query.status) {
+      filter.status = query.status.toUpperCase();
+    }
+
+    if (month) {
+      const lastDate = getDatePosition(month, 0, 1).getDate();
+      const start = `${month}-01`;
+      const end = `${month}-${lastDate}`;
+
+      filter.month = time.getMonth(month);
+      query.date = { $gte: start, $lte: end };
+    }
+
     const attendances = await Attendance.find({
       employee: req.params.employeeId,
-      ...req.query,
-    });
+      ...query,
+    }).sort({ date: 1 });
 
     const employee = await Employee.findById(req.params.employeeId).populate({
       path: "user position department",
@@ -543,8 +584,37 @@ router.get("/print/:employeeId", async (req, res) => {
         {
           style: "table",
           table: {
-            widths: [150, "*"],
+            widths: [120, "*"],
             body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "FILTER",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
               [
                 {
                   text: "Bulan",
@@ -552,11 +622,31 @@ router.get("/print/:employeeId", async (req, res) => {
                   alignment: "left",
                 },
                 {
-                  text: time.getMonth("2020-9"),
+                  text: filter.month,
                   style: "tableData",
                   alignment: "left",
                 },
               ],
+              [
+                {
+                  text: "Status",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.status,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
               [
                 {
                   text: "NIK",

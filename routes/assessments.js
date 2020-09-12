@@ -20,8 +20,10 @@ const fonts = pdfFonts;
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
 const Employee = require("../models/Employee");
+const { time } = require("../utils/time");
+const validationPart = require("../assets/pdf-make/validationPart");
 
-// Getting all candidates
+// Getting all assessments
 router.get("/", async (req, res) => {
   try {
     const assessments = await Assessment.find({ ...req.query }).populate({
@@ -54,92 +56,211 @@ router.get("/me", auth, async (req, res) => {
   }
 });
 
-// Getting one
-router.get("/:assessmentId", async (req, res) => {
-  try {
-    const assessment = await Assessment.findById(
-      req.params.assessmentId
-    ).populate({
-      path: "employee",
-    });
-
-    return res.json(assessment);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json(err);
-  }
-});
-
 // Getting PDF
 router.get("/print", async (req, res) => {
   try {
-    const candidates = await Candidate.find({ ...req.query }).populate({
-      path: "user recruitment",
-      select: "-password",
-      populate: "profile",
+    const filter = {
+      user: {
+        nik: "ALL",
+        name: "Semua",
+      },
+      month: "Semua",
+    };
+
+    if (req.query.month) filter.month = req.query.month;
+    if (req.query.employee) {
+      const employee = await Employee.findById(req.query.employee).populate({
+        path: "user",
+        select: "-password",
+      });
+
+      if (req.query.month) filter.month = time.getMonth(req.query.month);
+
+      if (employee.user) {
+        filter.user = employee.user;
+      } else {
+        filter.user = {
+          nik: "ERR",
+          name: "Tidak Ditemukan",
+        };
+      }
+    }
+
+    const assessments = await Assessment.find({ ...req.query }).populate({
+      path: "employee",
+      populate: {
+        path: "user",
+        select: "-password",
+      },
     });
 
-    const pdfName = ["candidates"];
+    const pdfName = ["assessments"];
 
     // let buildRecruitments = [];
 
     const docDef = {
+      pageOrientation: "landscape",
       content: [
-        pdfHeader("Laporan Daftar Calon Karyawan"),
+        pdfHeader("Laporan Daftar Penilaian Karyawan"),
         {
           style: "table",
           table: {
-            widths: ["auto", "*", "auto", "auto", "auto", "auto"],
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "FILTER",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
+              [
+                {
+                  text: "Bulan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.month,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${filter.user.nik}] ${filter.user.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [
+              "auto",
+              "auto",
+              "auto",
+              "*",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+            ],
             body: [
               [
                 { text: "No.", alignment: "center", style: "tableHeader" },
                 {
-                  text: "Nama Kandidat",
+                  text: "Bulan",
                   alignment: "center",
                   style: "tableHeader",
                 },
                 {
-                  text: "Posisi Dilamar",
+                  text: "NIK",
                   alignment: "center",
                   style: "tableHeader",
                 },
                 {
-                  text: "Pendidikan Terakhir",
+                  text: "Nama Karyawan",
+                  alignment: "left",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Sikap",
                   alignment: "center",
                   style: "tableHeader",
                 },
-                { text: "Status", alignment: "center", style: "tableHeader" },
-                { text: "Tanggal", alignment: "center", style: "tableHeader" },
+                {
+                  text: "Keahlian",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Kerajinan",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                { text: "Kerapian", alignment: "center", style: "tableHeader" },
+                { text: "Komentar", alignment: "left", style: "tableHeader" },
               ],
-              ...candidates.map((candidate, index) => {
-                let profile = candidate.user.profile;
-                let education = { school: "" };
-                if (profile && profile.educations.length > 0) {
-                  education = profile.educations[profile.educations.length - 1];
-                }
+              ...assessments.map((assessment, index) => {
+                const employee = assessment.employee;
+                const user = employee.user;
+
                 return [
-                  { text: index + 1, alignment: "center" },
-                  { text: candidate.user.name, alignment: "left" },
+                  { text: index + 1, style: "tableData", alignment: "center" },
                   {
-                    text: candidate.recruitment.positionName,
+                    text: time.getMonth(assessment.month),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  { text: user.nik, style: "tableData", alignment: "center" },
+                  { text: user.name, style: "tableData", alignment: "left" },
+                  {
+                    text: assessment.manner,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: assessment.expertness,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: assessment.diligence,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: assessment.tidiness,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: assessment.comment,
+                    style: "tableData",
                     alignment: "left",
-                  },
-                  { text: education.school, alignment: "left" },
-                  {
-                    text: candidate.status.toUpperCase(),
-                    alignment: "center",
-                  },
-                  {
-                    text: new Date(candidate.appliedAt)
-                      .toISOString()
-                      .split("T")[0],
-                    alignment: "center",
                   },
                 ];
               }),
             ],
           },
         },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Admin",
+          nik: "",
+        }),
       ],
       styles: pdfStyles,
     };
@@ -163,6 +284,256 @@ router.get("/print", async (req, res) => {
       // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
       res.send(file);
     });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Printing by assessment id
+router.get("/print/:assessmentId", async (req, res) => {
+  try {
+    const assessment = await Assessment.findById(
+      req.params.assessmentId
+    ).populate({
+      path: "employee",
+      populate: {
+        path: "user department position",
+        select: "-password",
+      },
+    });
+
+    const employee = assessment.employee;
+    const department = employee.department ? employee.department : {};
+    const position = employee.position ? employee.position : {};
+
+    const pdfName = ["assessment-detail", req.params.assessmentId];
+
+    // let buildRecruitments = [];
+
+    const docDef = {
+      pageOrientation: "portrait",
+      content: [
+        pdfHeader("Detail Penilaian Karyawan"),
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "Bulan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getMonth(assessment.month),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "NIK",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.nik,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Nama Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Jabatan/Posisi",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${position.code}] ${position.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Departemen",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${department.code}] ${department.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [150, "*", "*", "*", "*"],
+            body: [
+              [
+                {
+                  text: "NILAI",
+                  style: "tableHeader",
+                  alignment: "left",
+                  rowSpan: 2,
+                },
+                {
+                  text: "Sikap",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Keahlian",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Kerajinan",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Kerapian",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              [
+                {},
+                {
+                  text: assessment.manner,
+                  style: "tableData",
+                  alignment: "center",
+                },
+                {
+                  text: assessment.expertness,
+                  style: "tableData",
+                  alignment: "center",
+                },
+                {
+                  text: assessment.diligence,
+                  style: "tableData",
+                  alignment: "center",
+                },
+                {
+                  text: assessment.tidiness,
+                  style: "tableData",
+                  alignment: "center",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["*"],
+            body: [
+              [
+                {
+                  text: "Komentar",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: assessment.comment,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Admin",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Getting one
+router.get("/:assessmentId", async (req, res) => {
+  try {
+    let populate = {};
+    if (req.query.populate) {
+      populate = JSON.parse(req.query.populate);
+    }
+
+    const assessment = await Assessment.findById(
+      req.params.assessmentId
+    ).populate({
+      path: "employee",
+      ...populate,
+    });
+
+    return res.json(assessment);
   } catch (err) {
     console.error(err);
     return res.status(500).json(err);

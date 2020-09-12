@@ -68,11 +68,19 @@ function calculateAge(date) {
 
   const age = Math.abs(age_dt.getUTCFullYear() - 1970);
 
-  return isNaN(age) ? "Unknown" : `${age}`;
+  return isNaN(age) ? "-" : `${age}`;
 }
 
 function localDate(date) {
   return new Date(date).toLocaleDateString("id-ID");
+}
+
+function getDatePosition(date, i = 1, initMonth = 0) {
+  date = date ? new Date(date) : new Date();
+  const year = date.getFullYear();
+  const month = date.getMonth();
+
+  return new Date(year, month + initMonth, i);
 }
 
 function normalDate(date, separator = "-") {
@@ -105,4 +113,5 @@ module.exports = {
   localDate,
   normalDate,
   reverseNormalDate,
+  getDatePosition,
 };

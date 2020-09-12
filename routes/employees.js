@@ -2,6 +2,9 @@ const express = require("express");
 const Employee = require("../models/Employee");
 const auth = require("../middleware/auth");
 const User = require("../models/User");
+const path = require("path");
+const url = require("url");
+const root = require("../root");
 
 const router = express.Router();
 
@@ -14,7 +17,7 @@ const fonts = require("../assets/pdf-make/fonts");
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
 const { IDR } = require("../utils/currency");
-const { localDate, normalDate } = require("../utils/time");
+const { localDate, normalDate, calculateAge } = require("../utils/time");
 const Department = require("../models/Department");
 const Position = require("../models/Position");
 const { time } = require("../utils/time");
@@ -262,12 +265,387 @@ router.get("/print", async (req, res) => {
   }
 });
 
+// Printing employee profile by employee id
+router.get("/print/:employeeId", async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.employeeId).populate({
+      path: "user position department",
+      select: "-password",
+      populate: "profile",
+    });
+
+    const user = employee.user;
+    const department = employee.department ? employee.department : {};
+    const position = employee.position ? employee.position : {};
+    const profile = user.profile ? user.profile : {};
+
+    const imagePath = path.join(root, "public", url.parse(user.image).pathname);
+
+    const docDef = {
+      content: [
+        pdfHeader("PROFIL KARYAWAN"),
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "FORM KARYAWAN",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
+              [
+                {
+                  text: "Posisi / Jabatan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${position.code}] ${position.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Departemen",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${department.code}] ${department.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Tanggal Direkrut",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(employee.joinDate),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Gaji Pokok",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: IDR(position.salary),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          margin: [0, 10, 0, 4],
+          columns: [
+            {
+              width: "*",
+              style: "table",
+              margin: [0, 0, 0, 0],
+              table: {
+                widths: [120, "*"],
+                body: [
+                  [
+                    {
+                      text: "DATA PROFIL",
+                      style: "tableHeader",
+                      alignment: "left",
+                      colSpan: 2,
+                    },
+                    {},
+                  ],
+                  [
+                    {
+                      text: "NIK",
+                      style: "tableHeader",
+                      alignment: "left",
+                    },
+                    {
+                      text: user.nik,
+                      style: "tableData",
+                      alignment: "left",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Nama Pelamar",
+                      style: "tableHeader",
+                      alignment: "left",
+                    },
+                    {
+                      text: user.name,
+                      style: "tableData",
+                      alignment: "left",
+                    },
+                  ],
+                  [
+                    {
+                      text: "No Kontak",
+                      style: "tableHeader",
+                      alignment: "left",
+                    },
+                    {
+                      text: profile.contact,
+                      style: "tableData",
+                      alignment: "left",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Email",
+                      style: "tableHeader",
+                      alignment: "left",
+                    },
+                    {
+                      text: user.email,
+                      style: "tableData",
+                      alignment: "left",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              width: 120,
+              style: "table",
+              margin: [0, 0, 0, 0],
+              table: {
+                widths: ["*"],
+                body: [
+                  [
+                    {
+                      margin: [2, 4, 2, 4],
+                      image: imagePath,
+                      fit: [100, 100],
+                      alignment: "center",
+                    },
+                  ],
+                ],
+              },
+            },
+          ],
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "auto", "*"],
+            headerRows: 2,
+            body: [
+              [
+                {
+                  text: "Riwayat Pendidikan",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 5,
+                },
+                {},
+                {},
+                {},
+                {},
+              ],
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "Tahun", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Nama Instansi",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: "Jurusan",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Keterangan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+              ],
+              ...profile.educations.map((education, index) => {
+                return [
+                  { text: index + 1, style: "tableData", alignment: "center" },
+                  {
+                    text: `${time.year(education.from)}-${
+                      education.isCurrently
+                        ? "Sekarang"
+                        : time.year(education.to)
+                    }`,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: education.school,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: education.major,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: education.description,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "auto", "*"],
+            headerRows: 2,
+            body: [
+              [
+                {
+                  text: "Riwayat Pengalaman",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 5,
+                },
+                {},
+                {},
+                {},
+                {},
+              ],
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "Tahun", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Nama Perusahaan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: "Jabatan",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Keterangan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+              ],
+              ...profile.experiences.map((experience, index) => {
+                return [
+                  { text: index + 1, style: "tableData", alignment: "center" },
+                  {
+                    text: `${time.year(experience.from)}-${
+                      experience.isCurrently
+                        ? "Sekarang"
+                        : time.year(experience.to)
+                    }`,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: experience.company,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: experience.job,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: experience.description,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getDateString(),
+          username: "ADMIN",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+      defaultStyle: {
+        columnGap: 10,
+      },
+    };
+
+    const pdfName = ["employee-detail", req.params.employeeId];
+
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
 // Get current user employee data
 router.get("/me", auth, async (req, res) => {
   try {
     const employee = await Employee.findOne({ user: req.user._id }).populate({
       path: "position department",
     });
+
+    if (req.query.populate) {
+      employee[req.query.populate] = req.user;
+    }
 
     console.log(employee);
     return res.json(employee);
@@ -284,9 +662,15 @@ router.get("/:employeeId", auth, async (req, res) => {
       req.user.privilege === "admin" ||
       req.user._id === req.params.employeeId
     ) {
+      let populate = {};
+      if (req.query.populate) {
+        populate = JSON.parse(req.query.populate);
+      }
+
       const employee = await Employee.findById(req.params.employeeId).populate({
         path: "user department position",
         select: "-password",
+        ...populate,
       });
 
       return res.json(employee);
@@ -368,15 +752,6 @@ async function getEmployeeByUserId(req, res, next) {
     console.error(err);
     return res.status(500).json({ error: err.message });
   }
-}
-
-// Function: calculage age from given birth date
-function calculateAge(birthday) {
-  // birthday is a date
-  birthday = new Date(birthday);
-  var ageDifMs = Date.now() - birthday.getTime();
-  var ageDate = new Date(ageDifMs); // miliseconds from epoch
-  return Math.abs(ageDate.getUTCFullYear() - 1970);
 }
 
 module.exports = router;

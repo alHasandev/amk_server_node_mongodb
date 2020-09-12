@@ -6,6 +6,9 @@ const Recruitment = require("../models/Recruitment");
 const Department = require("../models/Department");
 const Position = require("../models/Position");
 const User = require("../models/User");
+const path = require("path");
+const url = require("url");
+const root = require("../root");
 
 // Import for pdfmake
 const PdfPrinter = require("pdfmake");
@@ -17,7 +20,7 @@ const fonts = pdfFonts;
 
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
-const { time } = require("../utils/time");
+const { time, calculateAge } = require("../utils/time");
 const Candidate = require("../models/Candidate");
 const validationPart = require("../assets/pdf-make/validationPart");
 
@@ -59,6 +62,9 @@ router.get("/print", async (req, res) => {
     };
 
     if (query.status) filter.status = query.status;
+    if (query.isActive) {
+      filter.isActive = query.isActive !== "false" ? "YES" : "NO";
+    }
 
     if (dateRange) {
       let [start, end] = req.query.dateRange.split(":");
@@ -76,13 +82,13 @@ router.get("/print", async (req, res) => {
     // let buildRecruitments = [];
 
     const docDef = {
+      pageOrientation: "landscape",
       content: [
-        pdfHeader("Laporan Penerimaan Karyawan Baru"),
-
+        pdfHeader("Daftar Penerimaan Karyawan Baru"),
         {
           style: "table",
           table: {
-            widths: ["auto", "*"],
+            widths: [150, "*"],
             body: [
               [
                 {
@@ -95,6 +101,23 @@ router.get("/print", async (req, res) => {
                   style: "tableData",
                   alignment: "left",
                 },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "FILTER",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
               ],
               [
                 {
@@ -115,7 +138,19 @@ router.get("/print", async (req, res) => {
                   alignment: "left",
                 },
                 {
-                  text: filter.status,
+                  text: filter.status.toUpperCase(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Aktif ?",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.isActive,
                   style: "tableData",
                   alignment: "left",
                 },
@@ -141,19 +176,35 @@ router.get("/print", async (req, res) => {
               [
                 { text: "No.", alignment: "center", style: "tableHeader" },
                 {
-                  text: "Nama Posisi",
+                  text: "Posisi Diperlukan",
                   alignment: "left",
                   style: "tableHeader",
                 },
                 {
-                  text: "Diperlukan",
+                  text: "Jumlah Diperlukan",
                   alignment: "center",
                   style: "tableHeader",
                 },
-                { text: "Pelamar", alignment: "center", style: "tableHeader" },
-                { text: "Ditunda", alignment: "center", style: "tableHeader" },
-                { text: "Diterima", alignment: "center", style: "tableHeader" },
-                { text: "Direkrut", alignment: "center", style: "tableHeader" },
+                {
+                  text: "Jumlah Pelamar",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Jumlah Ditunda",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Jumlah Diterima",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Jumlah Direkrut",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
                 {
                   text: "Batas Waktu",
                   alignment: "center",
@@ -213,7 +264,7 @@ router.get("/print", async (req, res) => {
                     alignment: "center",
                   },
                   {
-                    text: recruitment.status,
+                    text: recruitment.status.toUpperCase(),
                     style: "tableData",
                     alignment: "center",
                   },
@@ -222,6 +273,11 @@ router.get("/print", async (req, res) => {
             ],
           },
         },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resorces Manajer",
+          nik: "",
+        }),
       ],
       styles: pdfStyles,
     };
@@ -263,8 +319,9 @@ router.get("/print/:recruitmentId", async (req, res) => {
     const candidates = await Candidate.find({
       recruitment: req.params.recruitmentId,
     }).populate({
-      path: "user profile",
-      populate: "-password",
+      path: "user",
+      populate: "profile",
+      select: "-password",
     });
 
     const department = recruitment.department ? recruitment.department : {};
@@ -272,11 +329,11 @@ router.get("/print/:recruitmentId", async (req, res) => {
 
     const docDef = {
       content: [
-        pdfHeader("Laporan Detail Penerimaan Karyawan Baru"),
+        pdfHeader("Detail Penerimaan Karyawan Baru"),
         {
           style: "table",
           table: {
-            widths: ["auto", "*"],
+            widths: [120, "*"],
             body: [
               [
                 {
@@ -290,9 +347,17 @@ router.get("/print/:recruitmentId", async (req, res) => {
                   alignment: "left",
                 },
               ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
               [
                 {
-                  text: "Judul",
+                  text: "Judul Lowongan",
                   style: "tableHeader",
                   alignment: "left",
                 },
@@ -362,7 +427,7 @@ router.get("/print/:recruitmentId", async (req, res) => {
                   alignment: "left",
                 },
                 {
-                  text: recruitment.createdAt,
+                  text: time.getDateString(recruitment.createdAt),
                   style: "tableData",
                   alignment: "left",
                 },
@@ -374,7 +439,7 @@ router.get("/print/:recruitmentId", async (req, res) => {
                   alignment: "left",
                 },
                 {
-                  text: recruitment.expiredAt,
+                  text: time.getDateString(recruitment.expiredAt),
                   style: "tableData",
                   alignment: "left",
                 },
@@ -386,7 +451,7 @@ router.get("/print/:recruitmentId", async (req, res) => {
                   alignment: "left",
                 },
                 {
-                  text: recruitment.status,
+                  text: recruitment.status.toUpperCase(),
                   style: "tableData",
                   alignment: "left",
                 },
@@ -397,8 +462,23 @@ router.get("/print/:recruitmentId", async (req, res) => {
         {
           style: "table",
           table: {
-            widths: ["auto", "auto", "*", "auto"],
+            widths: ["auto", "auto", "*", "auto", "auto", "auto", "auto"],
+            headerRows: 2,
             body: [
+              [
+                {
+                  text: "Daftar Pelamar / Calon Karyawan",
+                  style: "tableHeader",
+                  alignment: "center",
+                  colSpan: 7,
+                },
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+              ],
               [
                 { text: "No.", style: "tableHeader", alignment: "center" },
                 { text: "Foto", style: "tableHeader", alignment: "center" },
@@ -412,22 +492,65 @@ router.get("/print/:recruitmentId", async (req, res) => {
                   style: "tableHeader",
                   alignment: "center",
                 },
+                {
+                  text: "Umur",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Pendidikan Terakhir",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Status",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
               ],
               ...candidates.map((candidate, index) => {
+                const user = candidate.user;
+                const profile = user.profile ? user.profile : {};
+                const imagePath = path.join(
+                  root,
+                  "public",
+                  url.parse(user.image).pathname
+                );
+
+                const educationCount = profile.educations
+                  ? profile.educations.length
+                  : 0;
+
+                let lastEducation = {};
+                if (educationCount > 0) {
+                  lastEducation = profile.educations[educationCount - 1];
+                }
+
                 return [
                   { text: index + 1, style: "tableData", alignment: "center" },
+                  { image: imagePath, fit: [50, 50], alignment: "center" },
                   {
-                    text: candidate.user.image,
-                    style: "tableData",
-                    alignment: "center",
-                  },
-                  {
-                    text: candidate.user.name,
+                    text: user.name,
                     style: "tableData",
                     alignment: "left",
                   },
                   {
-                    text: candidate.email,
+                    text: user.email,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: calculateAge(profile.birthDate),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: lastEducation.school,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: candidate.status.toUpperCase(),
                     style: "tableData",
                     alignment: "center",
                   },
@@ -436,7 +559,7 @@ router.get("/print/:recruitmentId", async (req, res) => {
             ],
           },
         },
-        validationParts({
+        validationPart({
           positionName: "Banjarmasin, " + time.getDateString(),
           username: "ADMIN",
           nik: "",

@@ -15,6 +15,7 @@ const fonts = require("../assets/pdf-make/fonts");
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
 const validationPart = require("../assets/pdf-make/validationPart");
+const { time } = require("../utils/time");
 
 // Getting all request
 router.get("/", auth, async (req, res) => {
@@ -44,7 +45,25 @@ router.get("/", auth, async (req, res) => {
 // Getting PDF
 router.get("/print", async (req, res) => {
   try {
-    const requests = await Request.find({ ...req.query }).populate({
+    const { dateRange, ...query } = req.query;
+
+    const filter = {
+      date: "Semua",
+      status: "Semua",
+    };
+
+    if (query.status) {
+      filter.status = query.status.toUpperCase();
+    }
+
+    if (dateRange) {
+      const [start, end] = dateRange.split(":");
+
+      filter.date = `${start} - ${end}`;
+      query.createdAt = { $gte: start, $lte: end };
+    }
+
+    const requests = await Request.find({ ...query }).populate({
       path: "from",
       populate: {
         path: "user position",
@@ -55,12 +74,74 @@ router.get("/print", async (req, res) => {
     const pdfName = ["requests"];
 
     const docDef = {
+      pageOrientation: "landscape",
       content: [
         pdfHeader("Laporan Daftar Permintaan Karyawaan"),
         {
           style: "table",
           table: {
-            widths: ["auto", "auto", "*", "auto", "auto"],
+            widths: [200, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [200, "*"],
+            body: [
+              [
+                {
+                  text: "FILTER",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
+              [
+                {
+                  text: "Tanggal Permintaan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.date,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Status Permintaan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.status,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "*", "auto", "auto"],
             body: [
               [
                 { text: "No.", style: "tableHeader", alignment: "center" },
@@ -76,6 +157,382 @@ router.get("/print", async (req, res) => {
                   alignment: "center",
                 },
                 {
+                  text: "Komentar",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Status",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              ...requests.map((request, index) => {
+                return [
+                  { text: index + 1, style: "tableData", alignment: "center" },
+                  {
+                    text: time.getDateString(request.createdAt),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: `[${request.from.position.name}] ${request.from.user.name}`,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: request.message,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: request.comment,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: request.status.toUpperCase(),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resorces Manajer",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    console.log(docDef);
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Printing request by request id
+router.get("/print/:requestId", async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.requestId).populate({
+      path: "from",
+      populate: {
+        path: "user position",
+        select: "-password",
+      },
+    });
+
+    const user = request.from.user;
+    const position = request.from.position;
+
+    const pdfName = ["request"];
+
+    const docDef = {
+      pageOrientation: "portrait",
+      content: [
+        pdfHeader("Detail Permintaan Karyawaan"),
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Permintaan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(request.createdAt),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Terakhir Diupdate",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(request.updatedAt),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "NIK",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: user.nik,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Nama Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: user.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Posisi / Jabatan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${position.code}] ${position.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Status Permintaan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: request.status.toUpperCase(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["*"],
+            body: [
+              [
+                {
+                  text: "Detail Permintaan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: request.message,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["*"],
+            body: [
+              [
+                {
+                  text: "Komentar",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: request.comment,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resorces Manajer",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    console.log(docDef);
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Getting request PDF by employee id
+router.get("/print/employee/:employeeId", async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.employeeId).populate({
+      path: "user position",
+      select: "-password",
+    });
+
+    const requests = await Request.find({ ...req.query });
+
+    const pdfName = ["requests"];
+
+    const docDef = {
+      pageOrientation: "landscape",
+      content: [
+        pdfHeader("Laporan Permintaan Karyawan"),
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [150, "*"],
+            body: [
+              [
+                {
+                  text: "NIK",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.nik,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Nama Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.user.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Jabatan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: employee.position.name,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "*", "auto"],
+            body: [
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "Tanggal", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Detail Permintaan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: "Komentar",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
                   text: "Status",
                   style: "tableHeader",
                   alignment: "center",
@@ -86,18 +543,29 @@ router.get("/print", async (req, res) => {
                   .toISOString()
                   .split("T")[0];
                 return [
-                  { text: index + 1, alignment: "center" },
-                  { text: createdAt, alignment: "center" },
                   {
-                    text: `[${request.from.position.name}] ${request.from.user.name}`,
-                    alignment: "left",
+                    text: index + 1,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: createdAt,
+                    style: "tableData",
+                    alignment: "center",
                   },
                   {
                     text: request.message,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: request.comment,
+                    style: "tableData",
                     alignment: "left",
                   },
                   {
                     text: request.status.toUpperCase(),
+                    style: "tableData",
                     alignment: "center",
                   },
                 ];
@@ -105,11 +573,18 @@ router.get("/print", async (req, res) => {
             ],
           },
         },
-        validationPart({
-          nik: "63042604990001",
-          username: "Mohamad Albie",
-          positionName: "Admin",
-        }),
+        validationPart(
+          {
+            nik: "63042604990001",
+            username: "Mohamad Albie",
+            positionName: "Admin",
+          },
+          {
+            nik: employee.user.nik,
+            username: employee.user.name,
+            positionName: "Karyawan",
+          }
+        ),
       ],
       styles: pdfStyles,
     };
@@ -159,146 +634,6 @@ router.get("/me", auth, getEmployee, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.sendStatus(500);
-  }
-});
-
-// Getting request PDF by employee id
-router.get("/print/employee/:employeeId", async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.employeeId).populate({
-      path: "user position",
-      select: "-password",
-    });
-
-    const requests = await Request.find({ ...req.query });
-
-    const pdfName = ["requests"];
-
-    const docDef = {
-      content: [
-        pdfHeader("Laporan Permintaan Karyawaan"),
-        {
-          style: "table",
-          table: {
-            widths: ["auto", "*"],
-            body: [
-              [
-                {
-                  text: "NIK",
-                  style: "tableHeader",
-                  alignment: "left",
-                },
-                {
-                  text: employee.user.nik,
-                  style: "tableData",
-                  alignment: "left",
-                },
-              ],
-              [
-                {
-                  text: "Nama Karyawan",
-                  style: "tableHeader",
-                  alignment: "left",
-                },
-                {
-                  text: employee.user.name,
-                  style: "tableData",
-                  alignment: "left",
-                },
-              ],
-              [
-                {
-                  text: "Jabatan",
-                  style: "tableHeader",
-                  alignment: "left",
-                },
-                {
-                  text: employee.position.name,
-                  style: "tableData",
-                  alignment: "left",
-                },
-              ],
-            ],
-          },
-        },
-        {
-          style: "table",
-          table: {
-            widths: ["auto", "*", "auto", "auto"],
-            body: [
-              [
-                { text: "No.", style: "tableHeader", alignment: "center" },
-                { text: "Tanggal", style: "tableHeader", alignment: "center" },
-                {
-                  text: "Detail Permintaan",
-                  style: "tableHeader",
-                  alignment: "center",
-                },
-                {
-                  text: "Status",
-                  style: "tableHeader",
-                  alignment: "center",
-                },
-              ],
-              ...requests.map((request, index) => {
-                let createdAt = new Date(request.createdAt)
-                  .toISOString()
-                  .split("T")[0];
-                return [
-                  { text: index + 1, alignment: "center" },
-                  { text: createdAt, alignment: "center" },
-                  {
-                    text: request.message,
-                    alignment: "left",
-                  },
-                  {
-                    text: request.status.toUpperCase(),
-                    alignment: "center",
-                  },
-                ];
-              }),
-            ],
-          },
-        },
-        validationPart(
-          {
-            nik: "63042604990001",
-            username: "Mohamad Albie",
-            positionName: "Admin",
-          },
-          {
-            nik: employee.user.nik,
-            username: employee.user.name,
-            positionName: "Karyawan",
-          }
-        ),
-      ],
-      styles: pdfStyles,
-    };
-
-    console.log(docDef);
-    const pdfDoc = printer.createPdfKitDocument(docDef);
-
-    let temp;
-    const folder = "reports/";
-    const pdfpath = folder + pdfName.join("_") + ".pdf";
-    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
-    pdfDoc.end();
-
-    temp.on("finish", async () => {
-      // const file = fs.createReadStream(
-      //   pdfpath
-      // );
-      const file = fs.readFileSync(pdfpath);
-      const stat = fs.statSync(pdfpath);
-      res.setHeader("Content-Length", stat.size);
-      res.setHeader("Content-Type", "application/pdf");
-      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
-      res.send(file);
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json(err);
   }
 });
 
