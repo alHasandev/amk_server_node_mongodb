@@ -134,7 +134,7 @@ router.get("/print", async (req, res) => {
                   alignment: "left",
                 },
                 {
-                  text: filter.status,
+                  text: filter.status.toUpperCase(),
                   style: "tableData",
                   alignment: "left",
                 },
