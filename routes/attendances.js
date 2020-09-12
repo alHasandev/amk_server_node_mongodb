@@ -72,8 +72,10 @@ router.get("/absence", async (req, res) => {
 // Getting qr text
 router.get("/qrcode", async (req, res) => {
   const password = "fasjfjalsflaksjflkasjfeafesafa";
-  const time = "" + new Date().getMinutes() + new Date().getSeconds();
-  console.log(time);
+  // const time = "" + new Date().getMinutes() + new Date().getSeconds();
+  // Get current timestamp
+  const time = new Date().getTime();
+  console.log("generate qrcode time", time);
 
   try {
     const encryptedPassword = await bcrypt.hash(password, 10);
@@ -90,16 +92,20 @@ router.post("/qrcode", auth, async (req, res) => {
   const password = "fasjfjalsflaksjflkasjfeafesafa";
 
   try {
-    const isMatch = await bcrypt.compare(password, req.body.qrtext);
+    const isMatch = await bcrypt.compare(password, req.body.text);
 
     if (!isMatch)
       return res.status(500).json({
-        error:
-          "Gagal melakukan scan qrcode kehadiran, silahkan coba kembali beberapa saat !!",
+        error: "QR Code tidak sesuai !!",
       });
 
-    const time = "" + new Date().getMinutes() + new Date().getSeconds();
-    if (Number(time) - Number(req.body.time) >= 30)
+    // const time = "" + new Date().getMinutes() + new Date().getSeconds();
+    const time = new Date().getTime();
+    console.log("time now", time);
+    console.log("time qrcode", req.body.time);
+    console.log("different:", Number(time) - Number(req.body.time));
+
+    if (Number(time) - Number(req.body.time) > 30000)
       return res.status(500).json({
         error: "QR Code sudah kadaluarsa, tolong lakukan scan qr code kembali",
       });
@@ -167,7 +173,7 @@ router.get("/", auth, async (req, res) => {
       new Date(new Date().getFullYear, new Date().getMonth() + 1, 0)
     );
   }
-  console.log(start, end);
+  // console.log(start, end);
   try {
     const attendances = await Attendance.find({
       date: {
@@ -176,7 +182,7 @@ router.get("/", auth, async (req, res) => {
       },
       ...query,
     });
-    console.log(attendances);
+    // console.log(attendances);
     return res.json(attendances);
   } catch (err) {
     console.error(err);
