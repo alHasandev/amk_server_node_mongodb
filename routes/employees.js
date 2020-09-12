@@ -647,7 +647,7 @@ router.get("/me", auth, async (req, res) => {
       employee[req.query.populate] = req.user;
     }
 
-    console.log(employee);
+    // console.log(employee);
     return res.json(employee);
   } catch (err) {
     console.error(err);

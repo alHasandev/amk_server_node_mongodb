@@ -92,6 +92,7 @@ router.post("/qrcode", auth, async (req, res) => {
   const password = "fasjfjalsflaksjflkasjfeafesafa";
 
   try {
+    console.log("body", req.body);
     const isMatch = await bcrypt.compare(password, req.body.text);
 
     if (!isMatch)
@@ -137,7 +138,7 @@ router.post("/qrcode", auth, async (req, res) => {
     return res.status(201).json(newAttendance);
   } catch (err) {
     console.error(err);
-    return res.status(500).json(err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
