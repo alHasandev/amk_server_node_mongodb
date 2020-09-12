@@ -10,7 +10,6 @@ const schedule = require("node-schedule");
 
 // Init express app
 const app = express();
-app.use(cors());
 
 // Init mongoose
 mongoose.connect(process.env.DATABASE_URL, {
@@ -24,6 +23,7 @@ db.on("error", (err) => console.error(err));
 db.once("open", () => console.log("Connected to mongodb database!"));
 
 // Use express middleware
+app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 

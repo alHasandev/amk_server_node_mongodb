@@ -6,6 +6,7 @@ const auth = require("../middleware/auth");
 const Profile = require("../models/Profile");
 const Employee = require("../models/Employee");
 const formidable = require("formidable");
+const mv = require("mv");
 
 // Import for pdf make
 const PdfPrinter = require("pdfmake");
@@ -477,8 +478,15 @@ function uploadImage(req, res, next) {
         const newpath =
           root + "/public/images/profile/" + fields.nik + extension;
 
-        fs.rename(oldpath, newpath, (err) => {
-          if (err) throw err;
+        // fs.rename(oldpath, newpath, (err) => {
+        //   if (err) throw err;
+        //   req.body.image = `${req.protocol}://${
+        //     req.headers.host
+        //   }/images/profile/${fields.nik + extension}`;
+        //   next();
+        // });
+        mv(oldpath, newpath, (err) => {
+          if (err) return res.status(500).json(err);
           req.body.image = `${req.protocol}://${
             req.headers.host
           }/images/profile/${fields.nik + extension}`;
