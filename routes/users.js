@@ -312,23 +312,23 @@ router.patch("/:id", getUser, uploadImage, async (req, res) => {
 
   try {
     if (req.body.image) {
-      // delete prev image file
-      const imagePath = path.join(
-        root,
-        "public",
-        url.parse(res.user.image).pathname
-      );
+      // // delete prev image file
+      // const imagePath = path.join(
+      //   root,
+      //   "public",
+      //   url.parse(res.user.image).pathname
+      // );
 
-      if (
-        url.parse(res.user.image).pathname !== "/images/profile/default.png"
-      ) {
-        fs.unlink(imagePath, (err) => {
-          if (err) {
-            console.error(err);
-            return res.status(400).json(err);
-          }
-        });
-      }
+      // if (
+      //   url.parse(res.user.image).pathname !== "/images/profile/default.png"
+      // ) {
+      //   fs.unlink(imagePath, (err) => {
+      //     if (err) {
+      //       console.error(err);
+      //       return res.status(400).json(err);
+      //     }
+      //   });
+      // }
       // console.log(url.parse(res.user.image));
 
       res.user.image = req.body.image;

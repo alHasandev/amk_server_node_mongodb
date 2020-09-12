@@ -23,12 +23,11 @@ const userSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    default: "default.png",
+    default: "https://amk.widian-store.com/images/profile/default.png",
   },
   profile: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "profile",
-    default: null,
   },
   createdAt: {
     type: Date,
