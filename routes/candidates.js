@@ -50,7 +50,25 @@ router.get("/", async (req, res) => {
 // Getting PDF
 router.get("/print", async (req, res) => {
   try {
-    const candidates = await Candidate.find({ ...req.query }).populate({
+    const { dateRange, ...query } = req.query;
+    const filter = {
+      dateRange: "Semua",
+      status: "Semua",
+    };
+
+    if (query.status) filter.status = query.status;
+    if (query.isActive) {
+      filter.isActive = query.isActive !== "false" ? "YES" : "NO";
+    }
+
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      filter.dateRange = `${start} - ${end}`;
+      query.appliedAt = { $gte: start, $lte: end };
+    }
+
+    const candidates = await Candidate.find({ ...query }).populate({
       path: "user recruitment",
       select: "-password",
       populate: "profile",
@@ -63,6 +81,67 @@ router.get("/print", async (req, res) => {
     const docDef = {
       content: [
         pdfHeader("Laporan Daftar Calon Karyawan"),
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "FILTER",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
+              [
+                {
+                  text: "Tanggal Melamar",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.dateRange,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Status Lamaran",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.status,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
         {
           style: "table",
           table: {
@@ -95,21 +174,32 @@ router.get("/print", async (req, res) => {
                   education = profile.educations[profile.educations.length - 1];
                 }
                 return [
-                  { text: index + 1, alignment: "center" },
-                  { text: candidate.user.name, alignment: "left" },
+                  { text: index + 1, style: "tableData", alignment: "center" },
                   {
-                    text: candidate.recruitment.positionName,
+                    text: candidate.user.name,
+                    style: "tableData",
                     alignment: "left",
                   },
-                  { text: education.school, alignment: "left" },
+                  {
+                    text: candidate.recruitment.positionName,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: education.school,
+                    style: "tableData",
+                    alignment: "left",
+                  },
                   {
                     text: candidate.status.toUpperCase(),
+                    style: "tableData",
                     alignment: "center",
                   },
                   {
                     text: new Date(candidate.appliedAt)
                       .toISOString()
                       .split("T")[0],
+                    style: "tableData",
                     alignment: "center",
                   },
                 ];
