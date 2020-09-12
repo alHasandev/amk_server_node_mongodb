@@ -23,6 +23,8 @@ const fonts = {
 
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
+const { time } = require("../utils/time");
+const validationPart = require("../assets/pdf-make/validationPart");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -41,11 +43,51 @@ router.get("/print", async (req, res) => {
   try {
     const departments = await Department.find({ ...req.query });
 
+    const filter = {
+      isActive: "Semua",
+    };
+
+    if (req.query.isActive) {
+      filter.isActive = req.query.isActive !== "false" ? "YES" : "NO";
+    }
+
     const pdfName = ["departments"];
 
     const docDef = {
       content: [
-        pdfHeader("Laporan Daftar Department"),
+        pdfHeader("Laporan Daftar Departemen"),
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Aktif ?",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.isActive,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
         {
           style: "table",
           table: {
@@ -53,11 +95,11 @@ router.get("/print", async (req, res) => {
             body: [
               [
                 { text: "No.", style: "tableHeader", alignment: "center" },
-                { text: "CODE", style: "tableHeader", alignment: "center" },
+                { text: "Code", style: "tableHeader", alignment: "center" },
                 {
                   text: "Nama Department",
                   style: "tableHeader",
-                  alignment: "center",
+                  alignment: "left",
                 },
                 {
                   text: "Jumlah Posisi",
@@ -67,15 +109,32 @@ router.get("/print", async (req, res) => {
               ],
               ...departments.map((department, index) => {
                 return [
-                  { text: index + 1, alignment: "center" },
-                  { text: department.code, alignment: "center" },
-                  department.name,
-                  { text: department.positions.length, alignment: "center" },
+                  { text: index + 1, style: "tableData", alignment: "center" },
+                  {
+                    text: department.code,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: department.name,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: department.positions.length,
+                    style: "tableData",
+                    alignment: "center",
+                  },
                 ];
               }),
             ],
           },
         },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getDateString(),
+          username: "ADMIN",
+          nik: "",
+        }),
       ],
       styles: pdfStyles,
     };
@@ -146,6 +205,7 @@ router.patch("/:id", getDepartment, async (req, res) => {
   if (req.body.code) res.department.code = req.body.code;
   if (req.body.name) res.department.name = req.body.name;
   if (req.body.description) res.department.description = req.body.description;
+  if (req.body.isActive) res.department.isActive = req.body.isActive;
 
   try {
     const updatedDepartment = await res.department.save();

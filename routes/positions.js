@@ -23,6 +23,9 @@ const pdfStyles = require("../assets/pdf-make/styles");
 
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
+const { time } = require("../utils/time");
+const { IDR } = require("../utils/currency");
+const validationPart = require("../assets/pdf-make/validationPart");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -44,19 +47,71 @@ router.get("/print", async (req, res) => {
       code: "ALL",
       name: "Semua",
     };
+
+    const filter = {
+      isActive: "Semua",
+      department: {
+        code: "ALL",
+        name: "Semua",
+      },
+    };
+
+    if (req.query.isActive) {
+      filter.isActive = req.query.isActive !== "false" ? "YES" : "NO";
+    }
+
     if (req.query.department) {
-      department = await Department.findById(req.query.department);
+      filter.department = await Department.findById(req.query.department);
     }
 
     const pdfName = ["positions", "department-" + department.code];
 
     const docDef = {
       content: [
-        pdfHeader("Laporan Daftar Posisi"),
+        pdfHeader("Laporan Daftar Posisi/Jabatan"),
         {
-          text: `Department: [${department.code}] ${department.name}`,
-          style: "subtitle",
-          alignment: "center",
+          style: "table",
+          table: {
+            widths: ["auto", "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Departemen",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${filter.department.code}] ${filter.department.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Aktif ?",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.isActive,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
         },
         {
           style: "table",
@@ -65,11 +120,11 @@ router.get("/print", async (req, res) => {
             body: [
               [
                 { text: "No.", style: "tableHeader", alignment: "center" },
-                { text: "CODE", style: "tableHeader", alignment: "center" },
+                { text: "Code", style: "tableHeader", alignment: "center" },
                 {
                   text: "Nama Posisi",
                   style: "tableHeader",
-                  alignment: "center",
+                  alignment: "left",
                 },
                 {
                   text: "Gajih Pokok",
@@ -79,15 +134,32 @@ router.get("/print", async (req, res) => {
               ],
               ...positions.map((position, index) => {
                 return [
-                  { text: index + 1, alignment: "center" },
-                  { text: position.code, alignment: "center" },
-                  position.name,
-                  { text: position.salary, alignment: "right" },
+                  { text: index + 1, style: "tableData", alignment: "center" },
+                  {
+                    text: position.code,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: position.name,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: IDR(position.salary),
+                    style: "tableData",
+                    alignment: "center",
+                  },
                 ];
               }),
             ],
           },
         },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getDateString(),
+          username: "ADMIN",
+          nik: "",
+        }),
       ],
       styles: pdfStyles,
     };
@@ -154,6 +226,7 @@ router.patch("/:id", getPosition, async (req, res) => {
   if (req.body.name) res.position.name = req.body.name;
   if (req.body.salary) res.position.salary = req.body.salary;
   if (req.body.level) res.position.level = req.body.level;
+  if (req.body.isActive) res.position.isActive = req.body.isActive;
 
   try {
     const updatedPosition = await res.position.save();

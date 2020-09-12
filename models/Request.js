@@ -8,6 +8,9 @@ const requestSchema = new mongoose.Schema({
   message: {
     type: String,
   },
+  comment: {
+    type: String,
+  },
   status: {
     type: String,
     default: "pending",

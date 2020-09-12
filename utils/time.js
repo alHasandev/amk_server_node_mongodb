@@ -45,6 +45,19 @@ class Time {
 
     return `${this.moonnames[Number(month) - 1]} ${year}`;
   };
+
+  getDateString = (date) => {
+    date = date ? new Date(date) : new Date();
+
+    // const [year, month, day] = normalDate(date).split("-");
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+
+    if (!year || !month || !day) return "";
+
+    return `${day} ${this.moonnames[Number(month)]} ${year}`;
+  };
 }
 
 function calculateAge(date) {

@@ -19,6 +19,7 @@ const fonts = pdfFonts;
 
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
+const Employee = require("../models/Employee");
 
 // Getting all candidates
 router.get("/", async (req, res) => {
@@ -30,6 +31,22 @@ router.get("/", async (req, res) => {
         select: "-password",
       },
     });
+    return res.json(assessments);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
+  }
+});
+
+// Getting all candidates
+router.get("/me", auth, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ user: req.user._id });
+    const assessments = await Assessment.find({
+      employee: employee._id,
+      ...req.query,
+    });
+
     return res.json(assessments);
   } catch (err) {
     console.error(err);

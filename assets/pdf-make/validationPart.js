@@ -1,9 +1,9 @@
 module.exports = function (validation1, validation2) {
-  let widths = ["*", 150];
+  let widths = ["*", "auto"];
   let body;
 
   if (validation2) {
-    widths = ["*", 100, "*"];
+    widths = ["auto", "*", "auto"];
     body = [
       [
         {
@@ -18,6 +18,9 @@ module.exports = function (validation1, validation2) {
           alignment: "center",
         },
       ],
+      ["", "", ""],
+      ["", "", ""],
+      ["", "", ""],
       ["", "", ""],
       ["", "", ""],
       ["", "", ""],
@@ -57,6 +60,8 @@ module.exports = function (validation1, validation2) {
           alignment: "center",
         },
       ],
+      ["", ""],
+      ["", ""],
       ["", ""],
       ["", ""],
       ["", ""],

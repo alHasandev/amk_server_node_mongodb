@@ -20,6 +20,7 @@ const path = require("path");
 
 const url = require("url");
 const Candidate = require("../models/Candidate");
+const { time } = require("../utils/time");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -50,15 +51,71 @@ router.get("/print", async (req, res) => {
   try {
     const users = await User.find({ ...req.query }).select("-password");
 
+    // build query
+    const filter = {
+      privilege: "Semua",
+      isActive: "Semua",
+    };
+
+    if (req.query.privilege)
+      filter.privilege = req.query.privilege.toUpperCase();
+    if (req.query.isActive) {
+      filter.isActive = req.query.isActive !== "false" ? "YES" : "NO";
+    }
+
     const pdfName = ["users"];
 
     const docDef = {
       content: [
-        pdfHeader("Laporan Daftar User"),
+        pdfHeader("Laporan Daftar Pengguna"),
         {
           style: "table",
           table: {
-            widths: ["auto", "auto", "*", "auto", "auto"],
+            widths: ["auto", "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Hak Akses",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.privilege,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Pengguna Aktif ?",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.isActive,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "auto", "auto", "auto"],
             body: [
               [
                 { text: "No.", style: "tableHeader", alignment: "center" },
@@ -66,10 +123,15 @@ router.get("/print", async (req, res) => {
                 {
                   text: "Nama User",
                   style: "tableHeader",
-                  alignment: "center",
+                  alignment: "left",
                 },
                 {
                   text: "Email",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Aktif ?",
                   style: "tableHeader",
                   alignment: "center",
                 },
@@ -92,6 +154,10 @@ router.get("/print", async (req, res) => {
                   {
                     text: user.email,
                     alignment: "left",
+                  },
+                  {
+                    text: user.isActive ? "YES" : "NO",
+                    alignment: "center",
                   },
                   {
                     text: user.privilege.toUpperCase(),
@@ -387,7 +453,7 @@ function uploadImage(req, res, next) {
 
   try {
     form.parse(req, (err, fields, files) => {
-      if (err) throw err;
+      if (err) return res.status(401).json(err);
       console.log("Fields", fields);
       console.log("Files", files);
 

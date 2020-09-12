@@ -14,6 +14,11 @@ const fonts = require("../assets/pdf-make/fonts");
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
 const { IDR } = require("../utils/currency");
+const { localDate, normalDate } = require("../utils/time");
+const Department = require("../models/Department");
+const Position = require("../models/Position");
+const { time } = require("../utils/time");
+const validationPart = require("../assets/pdf-make/validationPart");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -44,8 +49,36 @@ router.get("/", async (req, res) => {
 // Get PDF
 router.get("/print", async (req, res) => {
   try {
-    const employees = await Employee.find({ ...req.query }).populate({
-      path: "user position",
+    const { dateRange, ...query } = req.query;
+    const filter = {
+      dateRange: "Semua",
+      department: {
+        code: "ALL",
+        name: "Semua",
+      },
+      position: {
+        code: "ALL",
+        name: "Semua",
+      },
+    };
+
+    if (query.department) {
+      filter.department = await Department.findById(query.department);
+    }
+
+    if (query.position) {
+      filter.position = await Position.findById(query.position);
+    }
+
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      filter.dateRange = `${start} - ${end}`;
+      query.joinDate = { $gte: start, $lte: end };
+    }
+
+    const employees = await Employee.find({ ...query }).populate({
+      path: "user position department",
       select: "-password",
       populate: "profile",
     });
@@ -55,12 +88,78 @@ router.get("/print", async (req, res) => {
     const pdfName = ["employees"];
 
     const docDef = {
+      pageOrientation: "landscape",
       content: [
-        pdfHeader("Laporan Daftar Karyawan"),
+        pdfHeader("Laporan Daftar Karyawan Baru"),
         {
           style: "table",
           table: {
-            widths: ["auto", "auto", "*", "auto", "auto", "auto", "auto"],
+            widths: ["auto", "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Departemen",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${filter.department.code}] ${filter.department.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Posisi/Jabatan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${filter.position.code}] ${filter.position.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Tanggal Bergabung",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.dateRange,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [
+              "auto",
+              "auto",
+              "*",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+            ],
             body: [
               [
                 { text: "No.", style: "tableHeader", alignment: "center" },
@@ -76,12 +175,17 @@ router.get("/print", async (req, res) => {
                   alignment: "center",
                 },
                 {
-                  text: "Tanggal Lahir",
+                  text: "Tanggal Bergabung",
                   style: "tableHeader",
                   alignment: "center",
                 },
                 {
                   text: "Posisi/Jabatan",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "Departemen",
                   style: "tableHeader",
                   alignment: "center",
                 },
@@ -93,10 +197,8 @@ router.get("/print", async (req, res) => {
               ],
               ...employees.map((employee, index) => {
                 let profile = employee.user.profile;
-                let birthDate = new Date(profile.birthDate)
-                  .toISOString()
-                  .split("T")[0];
-                let age = calculateAge(birthDate);
+                let joinDate = normalDate(employee.joinDate);
+                let age = calculateAge(profile.birthDate);
 
                 // console.log(profile);
                 return [
@@ -108,16 +210,28 @@ router.get("/print", async (req, res) => {
                     alignment: "center",
                   },
                   {
-                    text: birthDate,
+                    text: joinDate,
                     alignment: "center",
                   },
-                  { text: employee.position.name, alignment: "center" },
+                  {
+                    text: `[${employee.position.code}] ${employee.position.name}`,
+                    alignment: "center",
+                  },
+                  {
+                    text: `[${employee.department.code}] ${employee.department.name}`,
+                    alignment: "center",
+                  },
                   { text: IDR(employee.position.salary), alignment: "center" },
                 ];
               }),
             ],
           },
         },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getDateString(),
+          username: "Admin",
+          nik: "",
+        }),
       ],
       styles: pdfStyles,
     };

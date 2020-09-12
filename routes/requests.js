@@ -19,12 +19,15 @@ const validationPart = require("../assets/pdf-make/validationPart");
 // Getting all request
 router.get("/", auth, async (req, res) => {
   try {
-    if (req.user.privilege === "employee") {
-      const employee = await Employee.findOne({ user: req.user._id });
-      req.query.from = employee._id;
+    const { dateRange, ...query } = req.query;
+
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      query.createdAt = { $gte: start, $lte: end };
     }
-    // console.log(req.query);
-    const requests = await Request.find({ ...req.query }).populate({
+
+    const requests = await Request.find({ ...query }).populate({
       path: "from",
       populate: {
         path: "user position",
@@ -140,7 +143,18 @@ router.get("/print", async (req, res) => {
 // Getting all request bt current user
 router.get("/me", auth, getEmployee, async (req, res) => {
   try {
-    const requests = await Request.find({ employee: req.employee._id });
+    const { dateRange, ...query } = req.query;
+    query.from = req.employee._id;
+
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      query.createdAt = { $gte: start, $lte: end };
+    }
+
+    const requests = await Request.find({ ...query });
+    console.log("employees/me", req.employee);
+    console.log("requests/me", requests);
     return res.json(requests);
   } catch (err) {
     console.error(err);
@@ -310,6 +324,7 @@ router.post("/", auth, async (req, res) => {
   const request = new Request({
     from: req.body.from,
     message: req.body.message,
+    comment: req.body.comment,
     createdAt: new Date(),
   });
 
@@ -347,22 +362,8 @@ router.post("/me", auth, getEmployee, async (req, res) => {
 router.patch("/:requestId", auth, getRequest, async (req, res) => {
   if (req.body.from) res.request.from = req.body.from;
   if (req.body.message) res.request.message = req.body.message;
+  if (req.body.comment) res.request.comment = req.body.comment;
   if (req.body.status) res.request.status = req.body.status;
-  res.request.updatedAt = new Date();
-
-  try {
-    const updatedRequest = await res.request.save();
-
-    return res.json(updatedRequest);
-  } catch (err) {
-    console.error(err);
-    return res.sendStatus(500);
-  }
-});
-
-router.patch("/me/:requestId", auth, getRequest, async (req, res) => {
-  if (req.body.from) res.request.from = req.body.from;
-  if (req.body.message) res.request.message = req.body.message;
   res.request.updatedAt = new Date();
 
   try {

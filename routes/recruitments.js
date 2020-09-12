@@ -17,6 +17,9 @@ const fonts = pdfFonts;
 
 const printer = new PdfPrinter(fonts);
 const fs = require("fs");
+const { time } = require("../utils/time");
+const Candidate = require("../models/Candidate");
+const validationPart = require("../assets/pdf-make/validationPart");
 
 // Getting all
 router.get("/", async (req, res) => {
@@ -49,36 +52,76 @@ router.get("/", async (req, res) => {
 // Get PDF
 router.get("/print", async (req, res) => {
   try {
-    let { dateRange, ...query } = req.query;
-    let queryDate = {};
+    const { dateRange, ...query } = req.query;
+    const filter = {
+      dateRange: "Semua",
+      status: "Semua",
+    };
+
+    if (query.status) filter.status = query.status;
 
     if (dateRange) {
-      let start = req.query.dateRange.split(":")[0];
-      let end = req.query.dateRange.split(":")[1];
-      start = new Date(start).toISOString().split("T")[0];
-      end = new Date(end).toISOString().split("T")[0];
-      dateRange = start + "-" + end;
+      let [start, end] = req.query.dateRange.split(":");
 
-      queryDate = {
-        expiredAt: { $gte: new Date(start), $lte: new Date(end) },
-      };
-    } else {
-      dateRange = "Semua";
+      filter.dateRange = `${start} - ${end}`;
+      query.expiredAt = { $gte: start, $lte: end };
     }
 
-    const recruitments = await Recruitment.find({ ...query, ...queryDate });
+    const recruitments = await Recruitment.find({ ...query }).populate({
+      path: "position department",
+    });
 
-    const pdfName = ["recruitments", "status-open", date];
+    const pdfName = ["recruitments", "status-open", filter.dateRange];
 
     // let buildRecruitments = [];
 
     const docDef = {
       content: [
         pdfHeader("Laporan Penerimaan Karyawan Baru"),
+
         {
-          text: date,
-          style: "subtitle",
-          alignment: "center",
+          style: "table",
+          table: {
+            widths: ["auto", "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Batas Waktu",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.dateRange,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Status Lowongan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.status,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
         },
         {
           style: "table",
@@ -92,55 +135,86 @@ router.get("/print", async (req, res) => {
               "auto",
               "auto",
               "auto",
+              "auto",
             ],
             body: [
               [
                 { text: "No.", alignment: "center", style: "tableHeader" },
                 {
                   text: "Nama Posisi",
+                  alignment: "left",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Diperlukan",
                   alignment: "center",
                   style: "tableHeader",
                 },
-                { text: "Melamar", alignment: "center", style: "tableHeader" },
+                { text: "Pelamar", alignment: "center", style: "tableHeader" },
+                { text: "Ditunda", alignment: "center", style: "tableHeader" },
                 { text: "Diterima", alignment: "center", style: "tableHeader" },
-                { text: "Ditolak", alignment: "center", style: "tableHeader" },
                 { text: "Direkrut", alignment: "center", style: "tableHeader" },
-                { text: "Deadline", alignment: "center", style: "tableHeader" },
+                {
+                  text: "Batas Waktu",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
                 { text: "Status", alignment: "center", style: "tableHeader" },
               ],
               ...recruitments.map((recruitment, index) => {
+                const position = recruitment.position
+                  ? recruitment.position
+                  : {};
+                const department = recruitment.department
+                  ? recruitment.department
+                  : {};
+
                 let candidateTotal =
                   recruitment.pending +
                   recruitment.accepted +
                   recruitment.rejected +
                   recruitment.hired;
+
                 return [
                   { text: index + 1, alignment: "center" },
-                  { text: recruitment.positionName, alignment: "left" },
                   {
-                    text: `${recruitment.pending} / ${candidateTotal}`,
+                    text: position.name,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: recruitment.numberRequired,
+                    style: "tableData",
                     alignment: "center",
                   },
                   {
-                    text: `${recruitment.accepted} / ${candidateTotal}`,
+                    text: candidateTotal,
+                    style: "tableData",
                     alignment: "center",
                   },
                   {
-                    text: `${recruitment.rejected} / ${candidateTotal}`,
+                    text: recruitment.pending,
+                    style: "tableData",
                     alignment: "center",
                   },
                   {
-                    text: `${recruitment.hired} / ${recruitment.numberRequired}`,
+                    text: recruitment.accepted,
+                    style: "tableData",
                     alignment: "center",
                   },
                   {
-                    text: new Date(recruitment.expiredAt)
-                      .toISOString()
-                      .split("T")[0],
+                    text: recruitment.hired,
+                    style: "tableData",
                     alignment: "center",
                   },
                   {
-                    text: recruitment.status.toUpperCase(),
+                    text: time.getDateString(recruitment.expiredAt),
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: recruitment.status,
+                    style: "tableData",
                     alignment: "center",
                   },
                 ];
@@ -174,6 +248,227 @@ router.get("/print", async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.json(err);
+  }
+});
+
+// Getting PDF / Recruitment Detail + List Candidate
+router.get("/print/:recruitmentId", async (req, res) => {
+  try {
+    const recruitment = await Recruitment.findById(
+      req.params.recruitmentId
+    ).populate({
+      path: "position department",
+    });
+
+    const candidates = await Candidate.find({
+      recruitment: req.params.recruitmentId,
+    }).populate({
+      path: "user profile",
+      populate: "-password",
+    });
+
+    const department = recruitment.department ? recruitment.department : {};
+    const position = recruitment.position ? recruitment.position : {};
+
+    const docDef = {
+      content: [
+        pdfHeader("Laporan Detail Penerimaan Karyawan Baru"),
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Judul",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: recruitment.title,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Posisi Diperlukan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${position.code}] ${position.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Dari Departemen",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${department.code}] ${department.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Jumlah Diperlukan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: recruitment.numberRequired + " orang",
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Jumlah Pelamar",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text:
+                    recruitment.pending +
+                    recruitment.rejected +
+                    recruitment.accepted +
+                    recruitment.hired +
+                    " orang",
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Tanggal Dibuat",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: recruitment.createdAt,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Batas Waktu",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: recruitment.expiredAt,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Status Lowongan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: recruitment.status,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "*", "auto"],
+            body: [
+              [
+                { text: "No.", style: "tableHeader", alignment: "center" },
+                { text: "Foto", style: "tableHeader", alignment: "center" },
+                {
+                  text: "Nama Pelamar",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: "Email",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              ...candidates.map((candidate, index) => {
+                return [
+                  { text: index + 1, style: "tableData", alignment: "center" },
+                  {
+                    text: candidate.user.image,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                  {
+                    text: candidate.user.name,
+                    style: "tableData",
+                    alignment: "left",
+                  },
+                  {
+                    text: candidate.email,
+                    style: "tableData",
+                    alignment: "center",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        validationParts({
+          positionName: "Banjarmasin, " + time.getDateString(),
+          username: "ADMIN",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    const pdfName = ["recruitment-detail", req.params.recruitmentId];
+
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json(err);
   }
 });
 
