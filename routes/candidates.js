@@ -23,6 +23,7 @@ const fs = require("fs");
 const { time } = require("../utils/time");
 const validationPart = require("../assets/pdf-make/validationPart");
 const root = require("../root");
+const Employee = require("../models/Employee");
 
 // Getting all candidates
 router.get("/", async (req, res) => {
@@ -701,10 +702,22 @@ router.patch("/:candidateId", async (req, res) => {
       user.isActive = false;
     }
 
-    const updatedCandidate = await candidate.save();
-
     // Update recruitment candidate status
     const recruitment = await Recruitment.findById(candidate.recruitment);
+
+    if (req.body.status === "hired") {
+      const employee = new Employee({
+        user: candidate.user,
+        position: recruitment.position,
+        department: recruitment.department,
+      });
+
+      // save new employee
+      await employee.save();
+    }
+
+    const updatedCandidate = await candidate.save();
+
     // kurangi status sebelumnya + tambah status yg baru
     recruitment[prevStatus] = recruitment[prevStatus] - 1;
     recruitment[req.body.status] = recruitment[req.body.status] + 1;
