@@ -697,9 +697,10 @@ router.patch("/:candidateId", async (req, res) => {
     if (req.body.status) candidate.status = req.body.status;
     if (req.body.comment) candidate.comment = req.body.comment;
 
+    const user = await User.findById(candidate.user);
     if (req.body.status === "rejected") {
-      const user = await User.findById(candidate.user);
       user.isActive = false;
+      await user.save();
     }
 
     // Update recruitment candidate status
@@ -712,8 +713,11 @@ router.patch("/:candidateId", async (req, res) => {
         department: recruitment.department,
       });
 
+      user.privilege = "employee";
+
       // save new employee
       await employee.save();
+      await user.save();
     }
 
     const updatedCandidate = await candidate.save();

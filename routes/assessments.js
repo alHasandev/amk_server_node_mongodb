@@ -543,6 +543,7 @@ router.get("/:assessmentId", async (req, res) => {
 // Creating new assessment
 router.post("/", auth, async (req, res) => {
   const assessment = new Assessment({
+    month: req.body.month,
     employee: req.body.employee,
     manner: req.body.manner,
     expertness: req.body.expertness,
