@@ -20,7 +20,7 @@ Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjJhOTc3NTAzMmVi
 
 
 ###
-POST http://localhost:5000/auth
+POST https://amk.widian-store.com/auth
 Content-Type: application/json
 
 {
