@@ -32,7 +32,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // Cors options
-// app.options("/auth", cors());
+app.options("/auth", cors());
 
 // Import routers
 const authRouter = require("./routes/auth");
@@ -57,7 +57,7 @@ app.get("/", (req, res) => {
 });
 
 // Use routers
-app.use("/auth", authRouter);
+app.use("/auth", cors(), authRouter);
 app.use("/users", userRouter);
 app.use("/recruitments", recruitmentRouter);
 app.use("/departments", departmentRouter);
