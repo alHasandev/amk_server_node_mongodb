@@ -43,8 +43,8 @@ const requestRouter = require("./routes/requests");
 const candidateRouter = require("./routes/candidates");
 const assessmentRouter = require("./routes/assessments");
 const payloadRouter = require("./routes/payloads");
-const forceAbsence = require("./utils/schedule");
-const { normalDate } = require("./utils/time");
+// const forceAbsence = require("./utils/schedule");
+// const { normalDate } = require("./utils/time");
 
 app.get("/", (req, res) => {
   return res.json({
@@ -53,7 +53,7 @@ app.get("/", (req, res) => {
 });
 
 // Use routers
-app.use("/auth", cors(), authRouter);
+app.use("/auth", authRouter);
 app.use("/users", userRouter);
 app.use("/recruitments", recruitmentRouter);
 app.use("/departments", departmentRouter);
