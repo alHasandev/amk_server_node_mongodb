@@ -24,7 +24,7 @@ POST http://localhost:5000/auth
 Content-Type: application/json
 
 {
-  "email": "admin1@mail.com",
+  "email": "admin@mail.com",
   "password": "password123"
 }
 
