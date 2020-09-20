@@ -23,7 +23,6 @@ const {
   time,
   normalDate,
   reverseNormalDate,
-  localDate,
   getDatePosition,
 } = require("../utils/time");
 const validationPart = require("../assets/pdf-make/validationPart");
@@ -142,49 +141,90 @@ router.post("/qrcode", auth, async (req, res) => {
   }
 });
 
-// Force attendance to absence
-router.get("/absence", async (req, res) => {
-  try {
-    const attendances = await forceAbsence(new Date());
-
-    return res.status(201).json(attendances);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json(err);
-  }
-});
-
 // Getting all attendances of all user
 router.get("/", auth, async (req, res) => {
-  const { month, ...query } = req.query;
+  const { dateRange, ...query } = req.query;
 
-  let start = "";
-  let end = "";
-  if (month) {
-    [start, end] = month.split(":");
-    if (!end) {
-      let [year, monthNum] = month.split("-");
-      start = normalDate(month);
-      end = normalDate(new Date(year, Number(monthNum), 0));
-      // console.log(year, monthNum, new Date(year, monthNum + 1, 0));
-    }
-  } else {
-    start = normalDate(new Date());
-    end = normalDate(
-      new Date(new Date().getFullYear, new Date().getMonth() + 1, 0)
-    );
+  if (dateRange) {
+    let [start, end] = req.query.dateRange.split(":");
+
+    query.date = { $gte: start, $lte: end };
   }
+
   // console.log(start, end);
   try {
     const attendances = await Attendance.find({
-      date: {
-        $gte: start,
-        $lte: end,
-      },
       ...query,
-    });
+    })
+      .populate({
+        path: "employee",
+        populate: {
+          path: "user",
+          select: "-password",
+        },
+      })
+      .sort({ date: 1 });
+
     // console.log(attendances);
     return res.json(attendances);
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(404);
+  }
+});
+
+router.get("/monthly", auth, async (req, res) => {
+  const { monthRange, ...query } = req.query;
+
+  if (monthRange) {
+    let [start, end] = req.query.monthRange.split(":");
+
+    start = `${start}-01`;
+    let [endYear, endMonth] = end.split("-");
+    end = `${endYear}-${Number(endMonth) + 1}-01`;
+
+    query.date = { $gte: start, $lt: end };
+  }
+
+  // console.log(start, end);
+  try {
+    const attendances = await Attendance.find({
+      ...query,
+    })
+      .populate({
+        path: "employee",
+        populate: {
+          path: "user",
+          select: "-password",
+        },
+      })
+      .sort({ date: 1, employee: 1 });
+
+    const group = {};
+
+    attendances.map((attendance) => {
+      const { date, employee, status } = attendance;
+      const key =
+        time.yearMonth(date, 1) + "-" + (employee && employee._id) || "404";
+
+      if (group[key]) {
+        group[key][attendance.status] += 1;
+      } else {
+        group[key] = {
+          month: time.yearMonth(date, 1),
+          employee: employee,
+          present: 0,
+          leave: 0,
+          absence: 0,
+        };
+      }
+    });
+
+    const monthlyAttendances = Object.keys(group).map((key) => ({
+      _id: key,
+      ...group[key],
+    }));
+    return res.json(monthlyAttendances);
   } catch (err) {
     console.error(err);
     return res.sendStatus(404);
@@ -804,7 +844,74 @@ router.get("/:employeeId", auth, async (req, res) => {
   }
 });
 
-// Getting attendances of user with date range
+// Creating new attendance for current user
+router.get("/calendar/:attendanceGroupId", auth, async (req, res) => {
+  const [year, month, employeeId] = req.params.attendanceGroupId.split("-");
+
+  try {
+    const attendances = await Attendance.aggregate([
+      {
+        $project: {
+          date: {
+            $dateToString: {
+              date: "$date",
+              format: "%Y-%m-%d",
+            },
+          },
+          day: {
+            $dateToString: {
+              date: "$date",
+              format: "%d",
+            },
+          },
+          month: {
+            $dateToString: {
+              date: "$date",
+              format: "%Y-%m",
+            },
+          },
+          employee: { $toString: "$employee" },
+          status: 1,
+          description: 1,
+        },
+      },
+      {
+        $match: {
+          month: `${year}-${month}`,
+          employee: employeeId,
+        },
+      },
+      {
+        $sort: {
+          date: 1,
+        },
+      },
+    ]);
+
+    const employee = await Employee.findById(employeeId).populate({
+      path: "user",
+      select: "-password",
+    });
+
+    const calendar = {};
+    const total = {
+      present: 0,
+      leave: 0,
+      absence: 0,
+    };
+
+    attendances.map(({ day, status }) => {
+      total[status] += 1;
+      calendar[day] = status;
+    });
+
+    return res.json({ month: `${year}-${month}`, employee, total, calendar });
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
+  }
+});
+
 // Creating new attendance for current user
 router.post("/me", auth, getEmployee, async (req, res) => {
   const attendance = new Attendance({
