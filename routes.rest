@@ -1,4 +1,4 @@
-GET http://localhost:5000/attendances/calendar/2020-09-5f4da3ff69ed531e1092b2d3
+GET http://localhost:5000/attendances/?month=2020-08
 Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZjFlNDkxZjk3YTBhYTY3MzhkYjQwY2UiLCJlbWFpbCI6ImFkbWluQG1haWwuY29tIiwicHJpdmlsZWdlIjoiYWRtaW4iLCJpYXQiOjE2MDAyNjY1NDl9.cbc-EVkVmSEI9HoGDCSesP-N8DxAREBmYu-Vo_RVogM
 
 ###

@@ -41,9 +41,25 @@ class Time {
       let year = new Date().getFullYear();
       monthYear = `${year}-${month}`;
     }
-    const [year, month] = monthYear.split("-");
+    const [year, month] = Array.isArray(monthYear)
+      ? monthYear
+      : monthYear.split("-");
 
     return `${this.moonnames[Number(month) - 1]} ${year}`;
+  };
+
+  getFirstDayOfWeek = (date) => {
+    date = !date ? new Date() : new Date(date);
+    return date.getDay();
+  };
+
+  getLastDateOfMonth = (date, adjustment = 0) => {
+    const [year, month] = Array.isArray(date)
+      ? date
+      : normalDate(date).split("-");
+
+    const lastDateOfMonth = new Date(year, month + adjustment, 0);
+    return lastDateOfMonth;
   };
 
   getDateString = (date) => {
@@ -84,6 +100,7 @@ function getDatePosition(date, i = 1, initMonth = 0) {
 }
 
 function normalDate(date, separator = "-") {
+  if (!date) date = new Date();
   let d = new Date(date),
     month = "" + (d.getMonth() + 1),
     day = "" + d.getDate(),

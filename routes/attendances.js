@@ -35,11 +35,63 @@ const attendanceStatus = {
   absence: "TIDAK HADIR",
 };
 
+// Getting all attendances of all user
+router.get("/", auth, async (req, res) => {
+  const { dateRange, month, ...query } = req.query;
+
+  if (dateRange) {
+    let [start, end] = req.query.dateRange.split(":");
+
+    query.date = { $gte: start, $lte: end };
+  }
+
+  if (month) {
+    const [year, nMonth] = month.split("-");
+    const start = `${month}-01`;
+    const end = `${year}-${Number(nMonth) + 1}-01`;
+
+    query.date = { $gte: start, $lt: end };
+  }
+
+  // console.log(start, end);
+  try {
+    const attendances = await Attendance.find({
+      ...query,
+    })
+      .populate({
+        path: "employee",
+        populate: {
+          path: "user",
+          select: "-password",
+        },
+      })
+      .sort({ date: -1 });
+
+    // console.log(attendances);
+    return res.json(attendances);
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(404);
+  }
+});
+
 // Getting current user attendances
 router.get("/me", auth, getEmployee, async (req, res) => {
   try {
     const attendances = await Attendance.find({ employee: req.employee._id });
     return res.json(attendances);
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(404);
+  }
+});
+
+// Getting one attendance by attendance id
+router.get("/one/:attendanceId", auth, async (req, res) => {
+  try {
+    const attendance = await Attendance.findById(req.params.attendanceId);
+
+    return res.json(attendance);
   } catch (err) {
     console.error(err);
     return res.sendStatus(404);
@@ -141,38 +193,7 @@ router.post("/qrcode", auth, async (req, res) => {
   }
 });
 
-// Getting all attendances of all user
-router.get("/", auth, async (req, res) => {
-  const { dateRange, ...query } = req.query;
-
-  if (dateRange) {
-    let [start, end] = req.query.dateRange.split(":");
-
-    query.date = { $gte: start, $lte: end };
-  }
-
-  // console.log(start, end);
-  try {
-    const attendances = await Attendance.find({
-      ...query,
-    })
-      .populate({
-        path: "employee",
-        populate: {
-          path: "user",
-          select: "-password",
-        },
-      })
-      .sort({ date: 1 });
-
-    // console.log(attendances);
-    return res.json(attendances);
-  } catch (err) {
-    console.error(err);
-    return res.sendStatus(404);
-  }
-});
-
+// Getting attendance monthly format
 router.get("/monthly", auth, async (req, res) => {
   const { monthRange, ...query } = req.query;
 
@@ -207,9 +228,7 @@ router.get("/monthly", auth, async (req, res) => {
       const key =
         time.yearMonth(date, 1) + "-" + (employee && employee._id) || "404";
 
-      if (group[key]) {
-        group[key][attendance.status] += 1;
-      } else {
+      if (!group[key]) {
         group[key] = {
           month: time.yearMonth(date, 1),
           employee: employee,
@@ -218,6 +237,8 @@ router.get("/monthly", auth, async (req, res) => {
           absence: 0,
         };
       }
+
+      group[key][attendance.status] += 1;
     });
 
     const monthlyAttendances = Object.keys(group).map((key) => ({
@@ -228,6 +249,799 @@ router.get("/monthly", auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.sendStatus(404);
+  }
+});
+
+// Creating new attendance for current user
+router.get("/calendar/:attendanceGroupId", auth, async (req, res) => {
+  const [year, month, employeeId] = req.params.attendanceGroupId.split("-");
+
+  try {
+    const attendances = await Attendance.aggregate([
+      {
+        $project: {
+          date: {
+            $dateToString: {
+              date: "$date",
+              format: "%Y-%m-%d",
+            },
+          },
+          day: {
+            $dateToString: {
+              date: "$date",
+              format: "%d",
+            },
+          },
+          month: {
+            $dateToString: {
+              date: "$date",
+              format: "%Y-%m",
+            },
+          },
+          employee: { $toString: "$employee" },
+          status: 1,
+          description: 1,
+        },
+      },
+      {
+        $match: {
+          month: `${year}-${month}`,
+          employee: employeeId,
+        },
+      },
+      {
+        $sort: {
+          date: 1,
+        },
+      },
+    ]);
+
+    const employee = await Employee.findById(employeeId).populate({
+      path: "user",
+      select: "-password",
+    });
+
+    const calendar = {};
+    const total = {
+      present: 0,
+      leave: 0,
+      absence: 0,
+    };
+
+    attendances.map(({ day, status }) => {
+      total[status] += 1;
+      calendar[day] = status;
+    });
+
+    return res.json({ month: `${year}-${month}`, employee, total, calendar });
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
+  }
+});
+
+router.get("/print", async (req, res) => {
+  try {
+    const { dateRange, ...query } = req.query;
+
+    const filter = {
+      date: "Semua",
+      employee: "Semua",
+      status: "Semua",
+    };
+
+    if (dateRange) {
+      let [start, end] = req.query.dateRange.split(":");
+
+      query.date = { $gte: start, $lte: end };
+      filter.date = `${start} sampai ${end}`;
+    }
+
+    if (query.status) {
+      switch (query.status) {
+        case "present":
+          filter.status = "HADIR";
+          break;
+        case "leave":
+          filter.status = "IZIN/CUTI";
+          break;
+        case "absence":
+          filter.status = "TIDAK HADIR";
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    if (query.employee) {
+      const employee = await Employee.findById(query.employee).populate({
+        path: "user position",
+        select: "-password",
+      });
+
+      const user = employee.user || {};
+      const position = employee.position || {};
+
+      filter.employee = `[${position.code}] ${user.name}`;
+    }
+
+    const attendances = await Attendance.find({
+      ...query,
+    })
+      .populate({
+        path: "employee",
+        populate: {
+          path: "user",
+          select: "-password",
+        },
+      })
+      .sort({ date: 1 });
+
+    const pdfName = ["attendances"];
+
+    // let buildRecruitments = [];
+
+    const docDef = {
+      content: [
+        pdfHeader("Laporan Kehadiran Karyawan Harian"),
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "FILTER",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
+              [
+                {
+                  text: "Tanggal",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.date,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.employee,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Status",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.status,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "auto", "auto", "auto", "*"],
+            body: [
+              [
+                { text: "No.", alignment: "center", style: "tableHeader" },
+                {
+                  text: "Tanggal",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "NIK",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Nama Karyawan",
+                  alignment: "left",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Status",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                { text: "Keterangan", alignment: "left", style: "tableHeader" },
+              ],
+              ...attendances.map((attendance, index) => {
+                const employee = attendance.employee || {};
+                const user = employee.user || {};
+                return [
+                  { text: index + 1, alignment: "center" },
+                  {
+                    text: reverseNormalDate(attendance.date),
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: user.nik,
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: user.name,
+                    alignment: "left",
+                    style: "tableData",
+                  },
+                  {
+                    text: attendanceStatus[attendance.status],
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: attendance.description,
+                    alignment: "left",
+                    style: "tableData",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resorces Manajer",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
+  }
+});
+
+router.get("/print/monthly", async (req, res) => {
+  try {
+    const { monthRange, ...query } = req.query;
+
+    const filter = {
+      month: "Semua",
+      employee: "Semua",
+    };
+
+    if (monthRange) {
+      let [start, end] = req.query.monthRange.split(":");
+
+      start = `${start}-01`;
+      let [endYear, endMonth] = end.split("-");
+      end = `${endYear}-${Number(endMonth) + 1}-01`;
+
+      query.date = { $gte: start, $lt: end };
+
+      filter.month = `${time.getMonth(start)} - ${time.getMonth(end)}`;
+    }
+
+    if (query.employee) {
+      const employee = await Employee.findById(query.employee).populate({
+        path: "user position",
+        select: "-password",
+      });
+
+      const user = employee.user || {};
+      const position = employee.position || {};
+
+      filter.employee = `[${position.code}] ${user.name}`;
+    }
+
+    const attendances = await Attendance.find({
+      ...query,
+    })
+      .populate({
+        path: "employee",
+        populate: {
+          path: "user",
+          select: "-password",
+        },
+      })
+      .sort({ date: 1 });
+
+    const group = {};
+
+    attendances.map((attendance) => {
+      const { date, employee, status } = attendance;
+      const key =
+        time.yearMonth(date, 1) + "-" + (employee && employee._id) || "404";
+
+      if (!employee) return;
+
+      if (!group[key]) {
+        group[key] = {
+          month: time.yearMonth(date, 1),
+          employee: employee,
+          present: 0,
+          leave: 0,
+          absence: 0,
+        };
+      }
+
+      group[key][attendance.status] += 1;
+    });
+
+    const monthlyAttendances = Object.keys(group).map((key) => ({
+      _id: key,
+      ...group[key],
+    }));
+
+    const pdfName = ["attendances"];
+
+    // let buildRecruitments = [];
+
+    const docDef = {
+      content: [
+        pdfHeader("Laporan Bulanan Kehadiran Karyawan"),
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "FILTER",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
+              [
+                {
+                  text: "Bulan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.month,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: filter.employee,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", "auto", "auto", "*", "auto", "auto", "auto"],
+            body: [
+              [
+                { text: "No.", alignment: "center", style: "tableHeader" },
+                {
+                  text: "Bulan",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "NIK",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Nama Karyawan",
+                  alignment: "left",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Hadir",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Izin/Cuti",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Tidak Hadir",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+              ],
+              ...monthlyAttendances.map((attendance, index) => {
+                const employee = attendance.employee || {};
+                const user = employee.user || {};
+                return [
+                  { text: index + 1, alignment: "center" },
+                  {
+                    text: time.getMonth(attendance.date),
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: user.nik,
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: user.name,
+                    alignment: "left",
+                    style: "tableData",
+                  },
+                  {
+                    text: attendance.present,
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: attendance.leave,
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: attendance.absence,
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resorces Manajer",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
+  }
+});
+
+// Printing pdf employee attendances group by month
+router.get("/print/monthly/:groupId", async (req, res) => {
+  try {
+    const [year, month, employeeId] = req.params.groupId.split("-");
+
+    const start = `${year}-${month}-01`;
+    const end = `${year}-${Number(month) + 1}-01`;
+
+    const match = {};
+    match.date = { $gte: start, $lt: end };
+    match.employee = employeeId;
+
+    const employee = await Employee.findById(employeeId).populate({
+      path: "user position",
+      select: "-password",
+    });
+
+    const user = employee.user || {};
+    const position = employee.position || {};
+
+    const attendances = await Attendance.find(match);
+
+    const total = {
+      present: 0,
+      leave: 0,
+      absence: 0,
+    };
+
+    attendances.map((attendance) => (total[attendance.status] += 1));
+
+    const pdfName = ["attendances"];
+
+    // let buildRecruitments = [];
+
+    const docDef = {
+      content: [
+        pdfHeader("Laporan Detail Kehadiran (Bulanan)"),
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "Tanggal Cetak",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getDateString(),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: [120, "*"],
+            body: [
+              [
+                {
+                  text: "DATA",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 2,
+                },
+                {},
+              ],
+              [
+                {
+                  text: "Bulan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: time.getMonth([year, month]),
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+              [
+                {
+                  text: "Karyawan",
+                  style: "tableHeader",
+                  alignment: "left",
+                },
+                {
+                  text: `[${user.nik}] ${user.name}`,
+                  style: "tableData",
+                  alignment: "left",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["*", "*", "*"],
+            body: [
+              [
+                {
+                  text: "Keterangan Status",
+                  style: "tableHeader",
+                  alignment: "left",
+                  colSpan: 3,
+                },
+                {},
+                {},
+              ],
+              [
+                {
+                  text: "HADIR",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "IZIN/CUTI",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+                {
+                  text: "TIDAK HADIR",
+                  style: "tableHeader",
+                  alignment: "center",
+                },
+              ],
+              [
+                {
+                  text: total["present"],
+                  style: "tableData",
+                  alignment: "center",
+                },
+                {
+                  text: total["leave"],
+                  style: "tableData",
+                  alignment: "center",
+                },
+                {
+                  text: total["absence"],
+                  style: "tableData",
+                  alignment: "center",
+                },
+              ],
+            ],
+          },
+        },
+        {
+          style: "table",
+          table: {
+            widths: ["auto", 150, "auto", 100, "*"],
+            body: [
+              [
+                { text: "No.", alignment: "center", style: "tableHeader" },
+                {
+                  text: "Hari",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Tgl",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                {
+                  text: "Status",
+                  alignment: "center",
+                  style: "tableHeader",
+                },
+                { text: "Keterangan", alignment: "left", style: "tableHeader" },
+              ],
+              ...attendances.map((attendance, index) => {
+                const day = time.date(attendance.date);
+                return [
+                  { text: index + 1, alignment: "center" },
+                  {
+                    text: time.getDayName(attendance.date).toUpperCase(),
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: day,
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: attendanceStatus[attendance.status],
+                    alignment: "center",
+                    style: "tableData",
+                  },
+                  {
+                    text: attendance.description,
+                    alignment: "left",
+                    style: "tableData",
+                  },
+                ];
+              }),
+            ],
+          },
+        },
+        validationPart({
+          positionName: "Banjarmasin, " + time.getMonth(),
+          username: "Human Resorces Manajer",
+          nik: "",
+        }),
+      ],
+      styles: pdfStyles,
+    };
+
+    const pdfDoc = printer.createPdfKitDocument(docDef);
+
+    let temp;
+    const folder = "reports/";
+    const pdfpath = folder + pdfName.join("_") + ".pdf";
+    pdfDoc.pipe((temp = fs.createWriteStream(pdfpath)));
+    pdfDoc.end();
+
+    temp.on("finish", async () => {
+      // const file = fs.createReadStream(
+      //   pdfpath
+      // );
+      const file = fs.readFileSync(pdfpath);
+      const stat = fs.statSync(pdfpath);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Type", "application/pdf");
+      // res.setHeader("Content-Disposition", "attachment; filename=quote.pdf");
+      res.send(file);
+    });
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
   }
 });
 
@@ -845,74 +1659,6 @@ router.get("/:employeeId", auth, async (req, res) => {
 });
 
 // Creating new attendance for current user
-router.get("/calendar/:attendanceGroupId", auth, async (req, res) => {
-  const [year, month, employeeId] = req.params.attendanceGroupId.split("-");
-
-  try {
-    const attendances = await Attendance.aggregate([
-      {
-        $project: {
-          date: {
-            $dateToString: {
-              date: "$date",
-              format: "%Y-%m-%d",
-            },
-          },
-          day: {
-            $dateToString: {
-              date: "$date",
-              format: "%d",
-            },
-          },
-          month: {
-            $dateToString: {
-              date: "$date",
-              format: "%Y-%m",
-            },
-          },
-          employee: { $toString: "$employee" },
-          status: 1,
-          description: 1,
-        },
-      },
-      {
-        $match: {
-          month: `${year}-${month}`,
-          employee: employeeId,
-        },
-      },
-      {
-        $sort: {
-          date: 1,
-        },
-      },
-    ]);
-
-    const employee = await Employee.findById(employeeId).populate({
-      path: "user",
-      select: "-password",
-    });
-
-    const calendar = {};
-    const total = {
-      present: 0,
-      leave: 0,
-      absence: 0,
-    };
-
-    attendances.map(({ day, status }) => {
-      total[status] += 1;
-      calendar[day] = status;
-    });
-
-    return res.json({ month: `${year}-${month}`, employee, total, calendar });
-  } catch (err) {
-    console.error(err);
-    return res.sendStatus(500);
-  }
-});
-
-// Creating new attendance for current user
 router.post("/me", auth, getEmployee, async (req, res) => {
   const attendance = new Attendance({
     employee: req.employee._id,
@@ -971,6 +1717,39 @@ router.post("/", auth, async (req, res) => {
 });
 
 // Updating existing attendance of user
+router.patch("/:attendanceId", async (req, res) => {
+  try {
+    const attendance = await Attendance.findById(req.params.attendanceId);
+
+    if (req.body.employee) attendance.employee = req.body.employee;
+    if (req.body.date) attendance.date = req.body.date;
+    if (req.body.status) attendance.status = req.body.status;
+    if (req.body.dayLeave) attendance.dayLeave = req.body.dayLeave;
+    if (req.body.description) attendance.description = req.body.description;
+
+    // save update
+    const updatedAttendance = await attendance.save();
+
+    return res.json(updatedAttendance);
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
+  }
+});
+
+// Deleting existing attendance
+router.delete("/:attendanceId", async (req, res) => {
+  try {
+    const attendance = await Attendance.findById(req.params.attendanceId);
+
+    await attendance.remove();
+
+    return res.json({ message: "Attendance Deleted !" });
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
+  }
+});
 
 // Middleware: get user by params user id
 async function getEmployee(req, res, next) {
