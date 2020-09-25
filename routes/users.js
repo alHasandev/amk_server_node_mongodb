@@ -250,7 +250,7 @@ router.post("/", isUniqueUser(true), uploadImage, async (req, res) => {
 });
 
 // Upload user image
-router.post("/upload/:userId", async (req, res) => {});
+// router.post("/upload/:userId", async (req, res) => {});
 
 // Updating one
 router.patch("/me", auth, async (req, res) => {
@@ -310,27 +310,10 @@ router.patch("/:id", getUser, uploadImage, async (req, res) => {
   // set updated at date
   res.user.updatedAt = new Date();
 
+  console.log("body image", req.body.image);
+
   try {
     if (req.body.image) {
-      // // delete prev image file
-      // const imagePath = path.join(
-      //   root,
-      //   "public",
-      //   url.parse(res.user.image).pathname
-      // );
-
-      // if (
-      //   url.parse(res.user.image).pathname !== "/images/profile/default.png"
-      // ) {
-      //   fs.unlink(imagePath, (err) => {
-      //     if (err) {
-      //       console.error(err);
-      //       return res.status(400).json(err);
-      //     }
-      //   });
-      // }
-      // console.log(url.parse(res.user.image));
-
       res.user.image = req.body.image;
     }
 
@@ -485,6 +468,17 @@ function uploadImage(req, res, next) {
         //   }/images/profile/${fields.nik + extension}`;
         //   next();
         // });
+        // Check if file exist
+        let exist = true;
+        if (fs.existsSync(newpath)) {
+          fs.unlinkSync(newpath);
+          exist = false;
+        } else {
+          exist = false;
+        }
+
+        if (exist) return next();
+
         mv(oldpath, newpath, (err) => {
           if (err) return res.status(500).json(err);
           req.body.image = `${req.protocol}://${
